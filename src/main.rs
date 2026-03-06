@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use agentctl::app::cli::{run, Cli};
+use agentctl::app::cli::{Cli, run};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

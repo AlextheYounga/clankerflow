@@ -132,7 +132,7 @@ Usage: `agentctl make <COMMAND>`
 
 Commands:
 - `ticket` Create a new ticket
-- `worktree` Create a git worktree, ticket, and tmux session on host
+- `worktree` Create a git worktree, ticket under .agents/.worktrees on host
 - `validate` Validate workflows under `.agents/workflows`
 - `help` Print this message or the help of the given subcommand(s)
 

@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
-use crate::app::types::{MakeCommands, RuntimeEnv};
 use crate::app::commands;
+use crate::app::types::{MakeCommands, RuntimeEnv};
 
 #[derive(Debug, Parser)]
 #[command(name = "agentctl", about = "AI workflow orchestration CLI")]

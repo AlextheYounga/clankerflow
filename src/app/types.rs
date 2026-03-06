@@ -19,9 +19,9 @@ impl RuntimeEnv {
 pub enum MakeCommands {
     /// Create a new ticket
     Ticket,
-    /// Create worktree and related artifacts
+    /// Create a git worktree and a paired ticket
     Worktree {
-        /// Branch name and worktree folder name
+        /// Branch name (used as worktree folder name and ticket branch)
         branch: String,
-    }
+    },
 }
