@@ -30,8 +30,8 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
     pub workflow_id: Option<i64>,
-    pub pid: Option<String>,
-	pub env: WorkflowEnv,
+    pub pid: Option<i64>,
+    pub env: WorkflowEnv,
     pub status: WorkflowRunStatus,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,

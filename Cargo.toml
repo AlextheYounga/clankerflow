@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+sea-orm = { version = "2.0.0-rc.36", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sea-orm-migration = { version = "2.0.0-rc.36", features = ["runtime-tokio-rustls"] }
