@@ -1,5 +1,5 @@
-use crate::core::project::require_project_root;
 use std::fs;
+use std::path::Path;
 
 use rust_embed::Embed;
 
@@ -8,20 +8,16 @@ use rust_embed::Embed;
 struct Kit;
 
 /// Write every embedded kit file into `<project_root>/.agents/`.
-///
-/// On re-init the tickets directory and settings.json are preserved
-/// (files that already exist are skipped).
-pub fn copy_kit(is_reinit: bool) -> anyhow::Result<()> {
-    let project_root = require_project_root()?;
+pub fn copy_kit(project_root: &Path, is_reinit: bool) -> anyhow::Result<()> {
+    copy_kit_into(project_root, is_reinit)
+}
+
+fn copy_kit_into(project_root: &Path, _is_reinit: bool) -> anyhow::Result<()> {
     let agents_dir = project_root.join(".agents");
 
     for path in Kit::iter() {
         let rel: &str = &path;
         let dest = agents_dir.join(rel);
-
-        if is_reinit && should_preserve(rel) {
-            continue;
-        }
 
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent)?;
@@ -31,25 +27,68 @@ pub fn copy_kit(is_reinit: bool) -> anyhow::Result<()> {
         fs::write(&dest, file.data)?;
     }
 
-    // Write `.agents/.gitignore` from the embedded `gitignore.example`.
-    // Skips if the file already exists so user edits are not clobbered.
+    // Always write `.agents/.gitignore` from the embedded `gitignore.example`.
     let gitignore_dest = agents_dir.join(".gitignore");
-    if !gitignore_dest.exists() {
-        let file = Kit::get("gitignore.example").expect("gitignore.example must be embedded");
-        if let Some(parent) = gitignore_dest.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(&gitignore_dest, file.data)?;
+    let file = Kit::get("gitignore.example").expect("gitignore.example must be embedded");
+    if let Some(parent) = gitignore_dest.parent() {
+        fs::create_dir_all(parent)?;
     }
+    fs::write(&gitignore_dest, file.data)?;
 
     Ok(())
 }
 
-/// Returns true for paths that must survive a re-init.
-fn should_preserve(rel: &str) -> bool {
-    rel.starts_with("tickets/")
-        || rel == "settings.json"
-        || rel.starts_with("context/")
-        || rel == "AGENTS.md"
-        || rel == "README.md"
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn fresh_init_writes_expected_scaffold_files() {
+        let dir = TempDir::new().unwrap();
+
+        copy_kit_into(dir.path(), false).unwrap();
+
+        assert!(dir.path().join(".agents/settings.json").exists());
+        assert!(dir.path().join(".agents/workflows/default.js").exists());
+        assert!(dir.path().join(".agents/.gitignore").exists());
+    }
+
+    #[test]
+    fn reinit_overwrites_existing_scaffold_files() {
+        let dir = TempDir::new().unwrap();
+        copy_kit_into(dir.path(), false).unwrap();
+        let settings_path = dir.path().join(".agents/settings.json");
+        fs::write(&settings_path, "custom settings").unwrap();
+
+        copy_kit_into(dir.path(), true).unwrap();
+
+        let settings = fs::read_to_string(settings_path).unwrap();
+        assert_ne!(settings, "custom settings");
+    }
+
+    #[test]
+    fn reinit_restores_missing_scaffold_files() {
+        let dir = TempDir::new().unwrap();
+        copy_kit_into(dir.path(), false).unwrap();
+        let workflow_path = dir.path().join(".agents/workflows/default.js");
+        fs::remove_file(&workflow_path).unwrap();
+
+        copy_kit_into(dir.path(), true).unwrap();
+
+        assert!(workflow_path.exists());
+    }
+
+    #[test]
+    fn reinit_rewrites_gitignore_file() {
+        let dir = TempDir::new().unwrap();
+        copy_kit_into(dir.path(), false).unwrap();
+        let gitignore_path = dir.path().join(".agents/.gitignore");
+        fs::write(&gitignore_path, "custom-ignore").unwrap();
+
+        copy_kit_into(dir.path(), true).unwrap();
+
+        let gitignore = fs::read_to_string(gitignore_path).unwrap();
+        assert_ne!(gitignore.trim(), "custom-ignore");
+    }
 }

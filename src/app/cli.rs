@@ -45,3 +45,52 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn work_command_uses_expected_defaults() {
+        let cli = Cli::try_parse_from(["agentctl", "work", "duos"]).unwrap();
+
+        match cli.command {
+            Commands::Work { name, env, yolo } => {
+                assert_eq!(name, "duos");
+                assert_eq!(env, RuntimeEnv::Host);
+                assert!(!yolo);
+            }
+            _ => panic!("expected work command"),
+        }
+    }
+
+    #[test]
+    fn work_command_parses_container_env() {
+        let cli = Cli::try_parse_from(["agentctl", "work", "duos", "--env", "container"]).unwrap();
+
+        match cli.command {
+            Commands::Work { env, .. } => assert_eq!(env, RuntimeEnv::Container),
+            _ => panic!("expected work command"),
+        }
+    }
+
+    #[test]
+    fn work_command_rejects_invalid_env() {
+        let result = Cli::try_parse_from(["agentctl", "work", "duos", "--env", "bad-env"]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn make_worktree_command_parses_branch() {
+        let cli = Cli::try_parse_from(["agentctl", "make", "worktree", "feat/new-branch"]).unwrap();
+
+        match cli.command {
+            Commands::Make { command } => match command {
+                MakeCommands::Worktree { branch } => assert_eq!(branch, "feat/new-branch"),
+                _ => panic!("expected make worktree command"),
+            },
+            _ => panic!("expected make command"),
+        }
+    }
+}
