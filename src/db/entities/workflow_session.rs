@@ -1,21 +1,14 @@
 use sea_orm::entity::prelude::*;
 
-use super::enums::{AgentEnv, AgentStatus};
-
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "agents")]
+#[sea_orm(table_name = "workflow_sessions")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub id: String,
-    pub execution_id: String,
-    pub tmux_session: Option<String>,
-    #[sea_orm(column_name = "role")]
+    #[sea_orm(primary_key)]
+    pub id: i64,
+    pub workflow_run_id: i64,
+    pub opencode_session_id: String,
     pub label: Option<String>,
-    pub prompt: Option<String>,
-    pub model: String,
     pub data: Option<Json>,
-    pub env: AgentEnv,
-    pub status: AgentStatus,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }
@@ -29,7 +22,7 @@ impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
             Self::WorkflowRun => Entity::belongs_to(super::workflow_run::Entity)
-                .from(Column::ExecutionId)
+                .from(Column::WorkflowRunId)
                 .to(super::workflow_run::Column::Id)
                 .on_delete(ForeignKeyAction::Cascade)
                 .into(),
@@ -37,9 +30,6 @@ impl RelationTrait for Relation {
     }
 }
 
-// Relation definitions for `Agent`.
-// - `WorkflowRun`: many-to-one relation to the `workflow_run` entity.
-//   Uses `Cascade` so deleting a workflow run will also delete its agents.
 impl Related<super::workflow_run::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::WorkflowRun.def()
