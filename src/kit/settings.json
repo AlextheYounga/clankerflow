@@ -1,0 +1,11 @@
+{
+  "codebase_id": "",
+  "git": {
+    "user_name": "Agent Bot",
+    "user_email": "agent@example.com",
+    "default_branch": "master"
+  },
+  "workflows": {
+    "default": "Default"
+  }
+}
