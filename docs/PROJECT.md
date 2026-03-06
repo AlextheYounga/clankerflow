@@ -26,7 +26,6 @@
 - There is no built-in workflow resume concept. 
 - Rust communicates with Opencode API. Typescript just owns workflow running and workflow helpers, passing back data to Rust via IPC channel. 
 - Workflow examples are stored at `src/kit/workflows` and these should not be changed heavily, as this is the syntax we are aiming for. 
-- Resources that need to communicate back to Rust are `ctx.*` resources.
 
 ### Container & Runtime
 - Container model is per-project (persistent), not per workflow run.
@@ -37,7 +36,7 @@
 ## OpenCode Lifecycle Integration
 - OpenCode REST API is a primary integration point for agent session lifecycle.
 - `docs/references/opencode-sdk.md` is the reference for modeling session create/prompt/events/messages/cancel flows.
-- Prefer implementing OpenCode lifecycle orchestration in Rust control-plane handlers, with `ctx.agent.*` calling those handlers via IPC.
+- Prefer implementing OpenCode lifecycle orchestration in Rust 
 - Prior project behavior may differ; this project should optimize for explicit Rust ownership and consistent lifecycle semantics.
 
 ## Workflow Runtime Strategy

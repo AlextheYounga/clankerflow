@@ -15,6 +15,15 @@ pub enum WorkflowRunStatus {
     Cancelled,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(32))")]
+pub enum WorkflowEnv {
+    #[sea_orm(string_value = "HOST")]
+    Host,
+    #[sea_orm(string_value = "CONTAINER")]
+    Container,
+}
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "workflow_runs")]
 pub struct Model {
@@ -22,6 +31,7 @@ pub struct Model {
     pub id: i64,
     pub workflow_id: Option<i64>,
     pub pid: Option<String>,
+	pub env: WorkflowEnv,
     pub status: WorkflowRunStatus,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
