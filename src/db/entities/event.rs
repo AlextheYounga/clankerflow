@@ -10,3 +10,8 @@ pub struct Model {
     pub data: Option<Json>,
     pub created_at: DateTimeUtc,
 }
+
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {}
+
+impl ActiveModelBehavior for ActiveModel {}

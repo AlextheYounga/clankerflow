@@ -68,3 +68,5 @@ impl Related<super::workflow::Entity> for Entity {
         Relation::Workflow.def()
     }
 }
+
+impl ActiveModelBehavior for ActiveModel {}

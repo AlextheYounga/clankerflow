@@ -1,4 +1,8 @@
+use clap::Parser;
 
-fn main() {
-    println!("Hello, world!");
+use agentctl::app::cli::{run, Cli};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    run(Cli::parse()).await
 }

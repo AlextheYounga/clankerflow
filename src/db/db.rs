@@ -1,10 +1,14 @@
-use crate core::project::get_project_root;
-use crate::db::migration::Migrator;
+use std::fs;
+use std::path::PathBuf;
+
 use sea_orm::{Database, DatabaseConnection, DbErr};
 use sea_orm_migration::MigratorTrait;
 
+use crate::core::project::get_project_root;
+use crate::db::migration::Migrator;
+
 pub fn project_database_path() -> PathBuf {
-	project_root = get_project_root().expect("Failed to find project root");
+    let project_root = get_project_root().expect("Failed to find project root");
     project_root.join(".agents/.agentctl/database.db")
 }
 
@@ -16,7 +20,7 @@ pub async fn connect() -> Result<DatabaseConnection, Box<dyn std::error::Error>>
     if !db_path.exists() {
         fs::File::create(&db_path)?;
     }
-    let db_url = format!("sqlite:///{}?mode=rwc", db_path.to_string_lossy());
+    let db_url = format!("sqlite://{}?mode=rwc", db_path.to_string_lossy());
     let conn = Database::connect(&db_url).await?;
     run_migrations(&conn).await?;
     Ok(conn)
