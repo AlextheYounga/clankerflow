@@ -42,7 +42,6 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
         Commands::Make { command } => match command {
             MakeCommands::Ticket => commands::make::ticket().await,
             MakeCommands::Worktree { branch } => commands::make::worktree(branch).await,
-            MakeCommands::Validate => commands::make::validate().await,
         },
     }
 }

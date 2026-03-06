@@ -23,7 +23,5 @@ pub enum MakeCommands {
     Worktree {
         /// Branch name and worktree folder name
         branch: String,
-    },
-    /// Validate workflows in .agents/workflows
-    Validate,
+    }
 }
