@@ -1,0 +1,17 @@
+{
+  "name": "@agentctl/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "format": "npx prettier --write .",
+    "test": "node --test tests/**/*.test.ts"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.3"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "simple-git": "^3.32.3"
+  }
+}
