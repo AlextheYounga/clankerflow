@@ -2,14 +2,14 @@ mod process;
 mod protocol;
 mod store;
 
-use std::io::ErrorKind;
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
 use serde_json::json;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWrite, BufReader};
 use tokio::process::Command;
 
 use crate::core::capabilities::{CapabilityRequest, dispatch as dispatch_capability};
@@ -23,6 +23,12 @@ use protocol::{
     LoopControl, parse_capability_request_payload, send_cancel, send_shutdown, write_message,
 };
 use store::{append_run_event, create_run, is_stop_requested, set_status, upsert_workflow};
+
+struct NodeRunner {
+    child: tokio::process::Child,
+    /// Bidirectional Node IPC channel (NODE_CHANNEL_FD=3)
+    ipc: tokio::fs::File,
+}
 
 pub async fn launch_workflow(
     project_root: &Path,
@@ -75,15 +81,8 @@ pub async fn pump_workflow(
     yolo: bool,
 ) -> Result<()> {
     let db = connect().await?;
-    let mut child = spawn_runner(project_root).await?;
-    let mut runner_stdin = child
-        .stdin
-        .take()
-        .ok_or_else(|| anyhow!("Node runner stdin unavailable"))?;
-    let runner_stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| anyhow!("Node runner stdout unavailable"))?;
+    let NodeRunner { child, ipc } = spawn_runner(project_root)?;
+    let (ipc_read, mut ipc_write) = tokio::io::split(ipc);
 
     let start_run_message = IpcMessage::command(
         "cmd_start",
@@ -96,12 +95,12 @@ pub async fn pump_workflow(
             "workflow_input": {},
         }),
     );
-    write_message(&mut runner_stdin, &start_run_message).await?;
+    write_message(&mut ipc_write, &start_run_message).await?;
 
-    let mut lines = BufReader::new(runner_stdout).lines();
+    let mut lines = BufReader::new(ipc_read).lines();
     loop {
         if is_stop_requested(&db, run_id).await? {
-            send_cancel(&mut runner_stdin, run_id).await;
+            send_cancel(&mut ipc_write, run_id).await;
             set_status(&db, run_id, WorkflowRunStatus::Cancelled).await?;
         }
 
@@ -113,14 +112,14 @@ pub async fn pump_workflow(
             break;
         };
 
-        let loop_control = handle_runner_line(&db, &mut runner_stdin, run_id, &line).await?;
+        let loop_control = handle_runner_line(&db, &mut ipc_write, run_id, &line).await?;
         if matches!(loop_control, LoopControl::Stop) {
             break;
         }
     }
 
-    send_shutdown(&mut runner_stdin).await;
-    drop(runner_stdin);
+    send_shutdown(&mut ipc_write).await;
+    drop(ipc_write);
     wait_for_child(child).await
 }
 
@@ -128,23 +127,78 @@ pub fn runner_js_path(project_root: &Path) -> PathBuf {
     project_root.join(".agents/.agentctl/lib/runner.js")
 }
 
-async fn spawn_runner(project_root: &Path) -> Result<tokio::process::Child> {
+fn spawn_runner(project_root: &Path) -> Result<NodeRunner> {
     let node_bin = resolve_node_bin()?;
     let runner_path = runner_js_path(project_root);
 
-    Command::new(node_bin)
+    // Node's built-in IPC channel is bound from NODE_CHANNEL_FD (fd 3).
+    // We provide one bidirectional Unix socket endpoint for the child and keep
+    // the other endpoint in Rust.
+    let (parent_ipc_fd, child_ipc_fd) = make_socketpair()?;
+    let child_ipc_raw = child_ipc_fd.as_raw_fd();
+
+    let mut command = Command::new(node_bin);
+    command
         .arg(runner_path)
         .current_dir(project_root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .env("NODE_CHANNEL_FD", "3")
+        .env("NODE_CHANNEL_SERIALIZATION_MODE", "json")
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    // SAFETY: pre_exec runs after fork, before exec. child_ipc_raw is valid and
+    // dup2/close are async-signal-safe.
+    unsafe {
+        command.pre_exec(move || {
+            if libc::dup2(child_ipc_raw, 3) == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            libc::close(child_ipc_raw);
+            Ok(())
+        });
+    }
+
+    let child = command
         .spawn()
-        .map_err(|error| anyhow!("failed to spawn Node runtime: {error}"))
+        .map_err(|error| anyhow!("failed to spawn Node runtime: {error}"))?;
+
+    // Drop the child endpoint in the parent so EOF propagates correctly.
+    drop(child_ipc_fd);
+
+    let ipc = tokio::fs::File::from_std(unsafe {
+        std::fs::File::from_raw_fd(parent_ipc_fd.into_raw_fd())
+    });
+
+    Ok(NodeRunner { child, ipc })
+}
+
+fn make_socketpair() -> Result<(OwnedFd, OwnedFd)> {
+    let mut fds = [0i32; 2];
+    // SAFETY: fds is a valid 2-element array; socketpair fills it.
+    let ret = unsafe {
+        libc::socketpair(
+            libc::AF_UNIX,
+            libc::SOCK_STREAM | libc::SOCK_CLOEXEC,
+            0,
+            fds.as_mut_ptr(),
+        )
+    };
+    if ret == -1 {
+        return Err(anyhow!(
+            "socketpair failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    // SAFETY: socketpair succeeded; fds are valid open file descriptors.
+    let left = unsafe { OwnedFd::from_raw_fd(fds[0]) };
+    let right = unsafe { OwnedFd::from_raw_fd(fds[1]) };
+    Ok((left, right))
 }
 
 async fn handle_runner_line(
     db: &sea_orm::DatabaseConnection,
-    runner_stdin: &mut tokio::process::ChildStdin,
+    ipc_write: &mut (impl AsyncWrite + Unpin),
     run_id: &str,
     line: &str,
 ) -> Result<LoopControl> {
@@ -173,7 +227,8 @@ async fn handle_runner_line(
                 parse_capability_request_payload(&message.payload)?;
             let request = CapabilityRequest { capability, params };
             let response = dispatch_capability(request_id, request);
-            if let Err(error) = write_message(runner_stdin, &response).await {
+            if let Err(error) = write_message(ipc_write, &response).await {
+                use std::io::ErrorKind;
                 if error.kind() != ErrorKind::BrokenPipe {
                     return Err(anyhow!("failed to write capability response: {error}"));
                 }

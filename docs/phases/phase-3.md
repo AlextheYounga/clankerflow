@@ -101,6 +101,30 @@ and reruns when `runtime/src/`, `runtime/package.json`, or `runtime/package-lock
 - `src/app/commands/init.rs` tests: `codebase_id` regeneration/preservation.
 - `runtime/tests/context.test.ts`: `ctx.exec(...)` host execution.
 
+## IPC Transport: Node Built-in Channel (`process.send`)
+
+Switched from a custom fd 3/4 transport to Node's built-in child IPC channel.
+
+**Why:** this is the native abstraction Node already provides (`process.send` / `process.on("message")`), avoids custom stream plumbing in JavaScript, and still keeps stdout/stderr free for normal logging.
+
+**How it works:**
+
+- Rust creates a Unix `socketpair` and keeps one endpoint.
+- In `pre_exec`, Rust `dup2`s the child endpoint to fd `3`.
+- Rust sets `NODE_CHANNEL_FD=3` and `NODE_CHANNEL_SERIALIZATION_MODE=json` when spawning Node.
+- Node automatically enables the built-in IPC API (`process.send` + `process.on("message")`).
+- Rust and Node exchange newline-delimited JSON `IpcMessage` frames over that one bidirectional channel.
+
+```
+Rust process                         Node process
+┌──────────────────┐                 ┌──────────────────┐
+│ socketpair end A │◄── fd 3 channel ►│ socketpair end B │
+│ (read + write)   │   byte stream    │ (read + write)   │
+└──────────────────┘                 └──────────────────┘
+```
+
+Node's stdin/stdout/stderr are not used for IPC. `console.log` is safe.
+
 ## Out of Scope for Phase 3
 
 - Real OpenCode client integration (capabilities are still stubs returning structured errors).

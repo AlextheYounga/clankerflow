@@ -43,8 +43,11 @@ export type CapabilityErrorPayload = {
   error: string;
 };
 
-export function parseIpcMessage(line: string): IpcMessage {
-  const parsed = JSON.parse(line) as IpcMessage;
+export function parseIpcMessage(input: unknown): IpcMessage {
+  const parsed =
+    typeof input === "string"
+      ? (JSON.parse(input) as IpcMessage)
+      : (input as IpcMessage);
   if (parsed.v !== "v1") {
     throw new Error("unsupported protocol version");
   }

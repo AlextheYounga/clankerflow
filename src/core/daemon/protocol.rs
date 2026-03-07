@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use serde_json::Value;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::core::ipc::IpcMessage;
 
@@ -27,17 +27,17 @@ pub fn parse_capability_request_payload(payload: &Value) -> Result<(&str, &Value
 }
 
 pub async fn write_message(
-    runner_stdin: &mut tokio::process::ChildStdin,
+    ipc_write: &mut (impl AsyncWrite + Unpin),
     message: &IpcMessage,
 ) -> std::io::Result<()> {
     let line =
         serde_json::to_string(message).map_err(|error| std::io::Error::other(error.to_string()))?;
-    runner_stdin.write_all(line.as_bytes()).await?;
-    runner_stdin.write_all(b"\n").await?;
+    ipc_write.write_all(line.as_bytes()).await?;
+    ipc_write.write_all(b"\n").await?;
     Ok(())
 }
 
-pub async fn send_cancel(runner_stdin: &mut tokio::process::ChildStdin, run_id: &str) {
+pub async fn send_cancel(ipc_write: &mut (impl AsyncWrite + Unpin), run_id: &str) {
     let message = IpcMessage::command(
         "cmd_cancel",
         "cancel_run",
@@ -46,14 +46,14 @@ pub async fn send_cancel(runner_stdin: &mut tokio::process::ChildStdin, run_id: 
             "reason": "user_requested",
         }),
     );
-    let _ = write_message(runner_stdin, &message).await;
+    let _ = write_message(ipc_write, &message).await;
 }
 
-pub async fn send_shutdown(runner_stdin: &mut tokio::process::ChildStdin) {
+pub async fn send_shutdown(ipc_write: &mut (impl AsyncWrite + Unpin)) {
     let message = IpcMessage::command(
         "cmd_shutdown",
         "shutdown",
         serde_json::json!({ "reason": "run_complete" }),
     );
-    let _ = write_message(runner_stdin, &message).await;
+    let _ = write_message(ipc_write, &message).await;
 }

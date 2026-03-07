@@ -4260,8 +4260,165 @@ var require_gray_matter = __commonJS({
   }
 });
 
-// runtime/src/runner.ts
-import readline from "node:readline";
+// runtime/src/protocol.ts
+function parseIpcMessage(input) {
+  const parsed = typeof input === "string" ? JSON.parse(input) : input;
+  if (parsed.v !== "v1") {
+    throw new Error("unsupported protocol version");
+  }
+  if (!parsed.id || !parsed.kind || !parsed.name || !parsed.payload) {
+    throw new Error("invalid IPC message");
+  }
+  return parsed;
+}
+
+// runtime/src/ipc.ts
+var IpcTransport = class {
+  messageHandler = null;
+  disconnectHandler = null;
+  proc;
+  constructor(proc = process) {
+    this.proc = proc;
+  }
+  start() {
+    this.proc.on("message", (raw) => {
+      try {
+        const message = parseIpcMessage(raw);
+        this.messageHandler?.(message);
+      } catch (error) {
+        this.send({
+          v: "v1",
+          id: `err_${Date.now()}`,
+          kind: "error",
+          name: "ipc_parse_error",
+          payload: { message: errorMessage(error) }
+        });
+      }
+    });
+    this.proc.on("disconnect", () => {
+      void this.disconnectHandler?.();
+    });
+  }
+  onMessage(handler) {
+    this.messageHandler = handler;
+  }
+  onDisconnect(handler) {
+    this.disconnectHandler = handler;
+  }
+  send(message) {
+    if (typeof this.proc.send !== "function" || this.proc.connected === false) {
+      return;
+    }
+    this.proc.send(message, (error) => {
+      if (error) {
+        process.stderr.write(`ipc send error: ${errorMessage(error)}
+`);
+      }
+    });
+  }
+};
+var IpcRouter = class {
+  transport;
+  commandHandlers = /* @__PURE__ */ new Map();
+  pendingRequests = /* @__PURE__ */ new Map();
+  constructor(transport) {
+    this.transport = transport;
+  }
+  start() {
+    this.transport.onMessage((message) => {
+      void this.handleMessage(message);
+    });
+  }
+  onCommand(name, handler) {
+    this.commandHandlers.set(name, handler);
+  }
+  async handleMessage(message) {
+    if (message.kind === "response") {
+      const pending = this.pendingRequests.get(message.id);
+      if (pending) {
+        this.pendingRequests.delete(message.id);
+        pending.resolve(message.payload);
+      }
+      return;
+    }
+    if (message.kind === "error") {
+      const pending = this.pendingRequests.get(message.id);
+      if (pending) {
+        this.pendingRequests.delete(message.id);
+        const payload = message.payload;
+        pending.reject(new Error(payload.error ?? "request failed"));
+      }
+      return;
+    }
+    if (message.kind === "command") {
+      const handler = this.commandHandlers.get(message.name);
+      if (handler) {
+        try {
+          await handler(message.payload);
+        } catch (error) {
+          this.transport.send({
+            v: "v1",
+            id: message.id,
+            kind: "error",
+            name: "command_error",
+            payload: { message: errorMessage(error), command: message.name }
+          });
+        }
+      }
+      return;
+    }
+  }
+  send(kind, name, payload) {
+    const message = {
+      v: "v1",
+      id: `msg_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      kind,
+      name,
+      payload
+    };
+    this.transport.send(message);
+  }
+  emit(name, payload) {
+    this.send("event", name, payload);
+  }
+  request(name, payload, signal) {
+    const requestId = `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new Error("operation cancelled"));
+        return;
+      }
+      const abortHandler = () => {
+        this.pendingRequests.delete(requestId);
+        reject(new Error("operation cancelled"));
+      };
+      if (signal) {
+        signal.addEventListener("abort", abortHandler, { once: true });
+      }
+      this.pendingRequests.set(requestId, {
+        resolve: (result) => {
+          signal?.removeEventListener("abort", abortHandler);
+          resolve(result);
+        },
+        reject: (error) => {
+          signal?.removeEventListener("abort", abortHandler);
+          reject(error);
+        }
+      });
+      this.transport.send({
+        v: "v1",
+        id: requestId,
+        kind: "request",
+        name,
+        payload: { ...payload, request_id: requestId }
+      });
+    });
+  }
+};
+function errorMessage(error) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 // runtime/src/context.ts
 import path4 from "node:path";
@@ -8660,12 +8817,12 @@ function isTaskError(result) {
 function getErrorMessage(result) {
   return Buffer.concat([...result.stdOut, ...result.stdErr]);
 }
-function errorDetectionHandler(overwrite = false, isError = isTaskError, errorMessage2 = getErrorMessage) {
+function errorDetectionHandler(overwrite = false, isError = isTaskError, errorMessage3 = getErrorMessage) {
   return (error, result) => {
     if (!overwrite && error || !isError(result)) {
       return error;
     }
-    return errorMessage2(result);
+    return errorMessage3(result);
   };
 }
 function errorDetectionPlugin(config) {
@@ -9340,101 +9497,36 @@ function pathToFileUrl(filePath) {
   return `file://${normalized}`;
 }
 
-// runtime/src/protocol.ts
-function parseIpcMessage(line) {
-  const parsed = JSON.parse(line);
-  if (parsed.v !== "v1") {
-    throw new Error("unsupported protocol version");
-  }
-  if (!parsed.id || !parsed.kind || !parsed.name || !parsed.payload) {
-    throw new Error("invalid IPC message");
-  }
-  return parsed;
-}
-
 // runtime/src/runner.ts
 var Runner = class {
   activeRuns = /* @__PURE__ */ new Map();
-  pendingCapabilities = /* @__PURE__ */ new Map();
+  ipc = null;
   start() {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      crlfDelay: Infinity
+    const transport = new IpcTransport();
+    transport.start();
+    transport.onDisconnect(() => this.shutdown());
+    this.ipc = new IpcRouter(transport);
+    this.ipc.start();
+    this.ipc.onCommand("start_run", async (payload) => {
+      const startPayload = payload;
+      void this.executeRun(startPayload);
     });
-    rl.on("line", async (line) => {
-      if (!line.trim()) return;
-      let message;
-      try {
-        message = parseIpcMessage(line);
-      } catch (error) {
-        this.emit("error", "ipc_error", { message: errorMessage(error) });
-        return;
-      }
-      try {
-        await this.handleMessage(message);
-      } catch (error) {
-        this.emit("error", "runner_error", {
-          message: errorMessage(error),
-          command: message.name
-        });
-      }
+    this.ipc.onCommand("cancel_run", (payload) => {
+      const cancelPayload = payload;
+      this.activeRuns.get(cancelPayload.run_id)?.controller.abort();
     });
-    rl.on("close", async () => {
-      for (const run of this.activeRuns.values()) {
-        run.controller.abort();
-      }
-      await this.waitForRunDrain();
-      process.exit(0);
-    });
-  }
-  async handleMessage(message) {
-    if (message.kind === "response") {
-      const pending = this.pendingCapabilities.get(message.id);
-      if (pending) {
-        this.pendingCapabilities.delete(message.id);
-        const payload = message.payload;
-        pending.resolve(payload.result ?? message.payload);
-      }
-      return;
-    }
-    if (message.kind === "error") {
-      const pending = this.pendingCapabilities.get(message.id);
-      if (pending) {
-        this.pendingCapabilities.delete(message.id);
-        const payload = message.payload;
-        pending.reject(new Error(payload.error ?? "capability request failed"));
-      }
-      return;
-    }
-    if (message.kind !== "command") return;
-    if (message.name === "start_run") {
-      const payload = message.payload;
-      void this.executeRun(payload);
-      return;
-    }
-    if (message.name === "cancel_run") {
-      const payload = message.payload;
-      this.activeRuns.get(payload.run_id)?.controller.abort();
-      return;
-    }
-    if (message.name === "shutdown") {
-      for (const run of this.activeRuns.values()) {
-        run.controller.abort();
-      }
-      await this.waitForRunDrain();
-      process.exit(0);
-    }
+    this.ipc.onCommand("shutdown", async () => this.shutdown());
   }
   async executeRun(payload) {
     const controller = new AbortController();
     this.activeRuns.set(payload.run_id, { runId: payload.run_id, controller });
-    this.emit("event", "run_started", {
+    this.emit("run_started", {
       run_id: payload.run_id,
       workflow_id: "unknown",
       workflow_name: "unknown",
       started_at: (/* @__PURE__ */ new Date()).toISOString()
     });
-    this.emit("event", "step_started", {
+    this.emit("step_started", {
       run_id: payload.run_id,
       step_id: `${payload.run_id}:workflow`,
       name: "workflow",
@@ -9442,7 +9534,7 @@ var Runner = class {
     });
     try {
       const module2 = await loadWorkflowModule(payload.workflow_path);
-      this.emit("event", "log", {
+      this.emit("log", {
         run_id: payload.run_id,
         level: "info",
         target: "runner",
@@ -9456,58 +9548,57 @@ var Runner = class {
         signal: controller.signal,
         ticket: payload.workflow_input?.ticket,
         emitEvent: (name, eventPayload) => {
-          this.emit("event", name, {
+          this.emit(name, {
             run_id: payload.run_id,
             ...eventPayload,
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           });
         },
-        invokeCapability: (capability, params) => this.sendCapabilityRequest(
-          payload.run_id,
-          capability,
-          params,
+        invokeCapability: (capability, params) => this.ipc.request(
+          "capability_request",
+          { run_id: payload.run_id, capability, params },
           controller.signal
         )
       });
       await module2.run(ctx);
-      this.emit("event", "step_finished", {
+      this.emit("step_finished", {
         run_id: payload.run_id,
         step_id: `${payload.run_id}:workflow`,
         status: "ok",
         duration_ms: 0,
         finished_at: (/* @__PURE__ */ new Date()).toISOString()
       });
-      this.emit("event", "run_finished", {
+      this.emit("run_finished", {
         run_id: payload.run_id,
         status: "SUCCEEDED",
         finished_at: (/* @__PURE__ */ new Date()).toISOString()
       });
     } catch (error) {
       if (controller.signal.aborted) {
-        this.emit("event", "step_finished", {
+        this.emit("step_finished", {
           run_id: payload.run_id,
           step_id: `${payload.run_id}:workflow`,
           status: "cancelled",
           duration_ms: 0,
           finished_at: (/* @__PURE__ */ new Date()).toISOString()
         });
-        this.emit("event", "run_finished", {
+        this.emit("run_finished", {
           run_id: payload.run_id,
           status: "CANCELLED",
           finished_at: (/* @__PURE__ */ new Date()).toISOString()
         });
       } else {
-        this.emit("event", "step_finished", {
+        this.emit("step_finished", {
           run_id: payload.run_id,
           step_id: `${payload.run_id}:workflow`,
           status: "failed",
           duration_ms: 0,
           finished_at: (/* @__PURE__ */ new Date()).toISOString()
         });
-        this.emit("event", "run_failed", {
+        this.emit("run_failed", {
           run_id: payload.run_id,
           error_code: "WORKFLOW_ERROR",
-          message: errorMessage(error),
+          message: errorMessage2(error),
           details: {},
           failed_at: (/* @__PURE__ */ new Date()).toISOString()
         });
@@ -9516,54 +9607,23 @@ var Runner = class {
       this.activeRuns.delete(payload.run_id);
     }
   }
-  sendCapabilityRequest(runId, capability, params, signal) {
-    const requestId = `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    return new Promise((resolve, reject) => {
-      if (signal.aborted) {
-        reject(new Error("operation cancelled"));
-        return;
-      }
-      const onAbort = () => {
-        this.pendingCapabilities.delete(requestId);
-        reject(new Error("operation cancelled"));
-      };
-      signal.addEventListener("abort", onAbort, { once: true });
-      this.pendingCapabilities.set(requestId, {
-        resolve: (result) => {
-          signal.removeEventListener("abort", onAbort);
-          resolve(result);
-        },
-        reject: (error) => {
-          signal.removeEventListener("abort", onAbort);
-          reject(error);
-        }
-      });
-      this.emit("request", "capability_request", {
-        request_id: requestId,
-        run_id: runId,
-        capability,
-        params
-      });
-    });
+  emit(name, payload) {
+    this.ipc?.emit(name, payload);
   }
   async waitForRunDrain() {
     while (this.activeRuns.size > 0) {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
   }
-  emit(kind, name, payload) {
-    const message = {
-      v: "v1",
-      id: `msg_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      kind,
-      name,
-      payload
-    };
-    process.stdout.write(`${JSON.stringify(message)}
-`);
+  async shutdown() {
+    for (const run of this.activeRuns.values()) {
+      run.controller.abort();
+    }
+    await this.waitForRunDrain();
+    process.exit(0);
   }
 };
-function errorMessage(error) {
+function errorMessage2(error) {
   if (error instanceof Error) return error.message;
   return String(error);
 }
