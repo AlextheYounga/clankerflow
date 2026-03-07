@@ -29,6 +29,7 @@ pub enum WorkflowEnv {
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
+    pub run_id: Option<String>,
     pub workflow_id: Option<i64>,
     pub pid: Option<i64>,
     pub env: WorkflowEnv,

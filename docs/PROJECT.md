@@ -68,7 +68,8 @@ Default approach: search that reference first and reuse those patterns unless th
 
 ```
 docs/references/
-├── agentcontainment.md       Previous Rust project that is ~95% complete; reuse proven patterns.
+├── agentcontainment.md       Old Rust project that is ~95% complete; reuse proven patterns.
+├── agentctlv1.md 			  Last project attempt at this. Closer to this approach. 
 ├── example-js-workflow.md    Example JavaScript workflow, used as a baseline workflow.
 ├── opencode-docs.md          OpenCode full documentation.
 ├── opencode-flow-attempt.md  Previous Typescript unsuccessful attempt at making OpenCode plugin, but contains code worth referencing.

@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { RuntimeEnv } from "./protocol.ts";
-import { sleepWithSignal } from "./helpers.ts";
+import { runExec, sleepWithSignal } from "./helpers.ts";
 
 type EventEmitter = (name: string, payload: Record<string, unknown>) => void;
 type CapabilityInvoker = (
@@ -70,6 +70,15 @@ export function createContext(options: RunnerContextOptions) {
         }),
       cancel: (sessionId: string) =>
         options.invokeCapability("agent_cancel", { session_id: sessionId }),
+    },
+    exec: (command: string, args: string[] = []) => {
+      const spec = resolveExecSpec(
+        options.runtimeEnv,
+        command,
+        args,
+        options.workspaceRoot,
+      );
+      return runExec(spec.bin, spec.args, spec.cwd, options.signal);
     },
     log: {
       debug: (message: string) =>

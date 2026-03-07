@@ -1,7 +1,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use sea_orm::{Database, DatabaseConnection, DbErr};
+use anyhow::{Context, Result};
+use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 
 use crate::core::project::get_project_root;
@@ -12,20 +13,22 @@ pub fn project_database_path() -> PathBuf {
     project_root.join(".agents/.agentctl/database.db")
 }
 
-pub async fn connect() -> Result<DatabaseConnection, Box<dyn std::error::Error>> {
+pub async fn connect() -> Result<DatabaseConnection> {
     let db_path = project_database_path();
     if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent)?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create DB directory: {}", parent.display()))?;
     }
     if !db_path.exists() {
-        fs::File::create(&db_path)?;
+        fs::File::create(&db_path)
+            .with_context(|| format!("failed to create DB file: {}", db_path.display()))?;
     }
     let db_url = format!("sqlite://{}?mode=rwc", db_path.to_string_lossy());
-    let conn = Database::connect(&db_url).await?;
-    run_migrations(&conn).await?;
+    let conn = Database::connect(&db_url)
+        .await
+        .context("failed to connect to database")?;
+    Migrator::up(&conn, None)
+        .await
+        .context("failed to run migrations")?;
     Ok(conn)
-}
-
-async fn run_migrations(db: &DatabaseConnection) -> Result<(), DbErr> {
-    Migrator::up(db, None).await
 }

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveExecSpec } from "../src/context.ts";
+import { createContext, resolveExecSpec } from "../src/context.ts";
 
 test("resolveExecSpec keeps host commands unchanged", () => {
   const spec = resolveExecSpec(
@@ -31,4 +31,21 @@ test("resolveExecSpec maps container commands to docker compose exec", () => {
     "git",
     "status",
   ]);
+});
+
+test("createContext exec runs host command", async () => {
+  const controller = new AbortController();
+  const context = createContext({
+    workspaceRoot: process.cwd(),
+    runtimeEnv: "host",
+    yolo: false,
+    signal: controller.signal,
+    emitEvent: () => {},
+    invokeCapability: async () => ({}),
+  });
+
+  const result = await context.exec("node", ["-e", "process.stdout.write('ok')"]);
+
+  assert.equal(result.code, 0);
+  assert.equal(result.stdout, "ok");
 });

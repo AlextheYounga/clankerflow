@@ -9187,8 +9187,64 @@ function sleepWithSignal(ms, signal) {
     signal.addEventListener("abort", onAbort, { once: true });
   });
 }
+function runExec(command, args, cwd, signal) {
+  return new Promise((resolve, reject) => {
+    const child = spawn2(command, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr?.setEncoding("utf8");
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    const onAbort = () => {
+      child.kill("SIGTERM");
+      reject(new Error("operation cancelled"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    child.on("error", (error) => {
+      signal.removeEventListener("abort", onAbort);
+      reject(error);
+    });
+    child.on("close", (code) => {
+      signal.removeEventListener("abort", onAbort);
+      resolve({ code: code ?? 0, stdout, stderr });
+    });
+  });
+}
 
 // runtime/src/context.ts
+function resolveExecSpec(runtimeEnv, command, args, workspaceRoot2) {
+  if (runtimeEnv === "host") {
+    return { bin: command, args, cwd: workspaceRoot2 };
+  }
+  return {
+    bin: "docker",
+    args: [
+      "compose",
+      "-f",
+      path4.join(
+        workspaceRoot2,
+        ".agents",
+        ".agentctl",
+        "docker",
+        "agent.docker-compose.yaml"
+      ),
+      "exec",
+      "-T",
+      "agent",
+      command,
+      ...args
+    ],
+    cwd: workspaceRoot2
+  };
+}
 function createContext(options2) {
   return {
     yolo: options2.yolo,
@@ -9205,6 +9261,15 @@ function createContext(options2) {
         session_id: sessionId
       }),
       cancel: (sessionId) => options2.invokeCapability("agent_cancel", { session_id: sessionId })
+    },
+    exec: (command, args = []) => {
+      const spec = resolveExecSpec(
+        options2.runtimeEnv,
+        command,
+        args,
+        options2.workspaceRoot
+      );
+      return runExec(spec.bin, spec.args, spec.cwd, options2.signal);
     },
     log: {
       debug: (message) => options2.emitEvent("log", {

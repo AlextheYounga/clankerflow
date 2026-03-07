@@ -1,22 +1,22 @@
 use std::path::PathBuf;
 
 use crate::app::types::RuntimeEnv;
+use crate::core::daemon::launch_workflow;
 use crate::core::project::require_project_root;
+use crate::core::settings::Settings;
 
 pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let workflow_path = resolve_workflow(&project_root, &name)?;
+    let settings = Settings::load(&project_root)?;
 
-    println!(
-        "Starting workflow '{}' (env={}, yolo={})",
-        name,
-        env.as_str(),
-        yolo
-    );
-    println!("  workflow: {}", workflow_path.display());
+    if settings.codebase_id.is_empty() {
+        anyhow::bail!("codebase_id is missing from settings; run `agentctl init` first");
+    }
 
-    // TODO: spawn Node runtime, pass workflow path and env over IPC
-    anyhow::bail!("workflow execution not yet implemented")
+    let run_id = launch_workflow(&project_root, &name, &workflow_path, env.as_str(), yolo).await?;
+    println!("workflow started: {run_id}");
+    Ok(())
 }
 
 fn resolve_workflow(project_root: &PathBuf, name: &str) -> anyhow::Result<PathBuf> {

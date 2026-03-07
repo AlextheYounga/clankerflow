@@ -18,10 +18,8 @@ pub async fn run() -> anyhow::Result<()> {
     // Copy kit files into .agents/
     copy_kit(&project_root, is_reinit)?;
 
-    // Stamp a new codebase_id only on a fresh init
-    if !is_reinit {
-        stamp_codebase_id(&project_root)?;
-    }
+    // Ensure settings always have a codebase_id, including after re-init.
+    stamp_codebase_id(&project_root)?;
 
     // Initialize the database (creates + migrates)
     connect().await.map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -73,4 +71,42 @@ fn new_codebase_id() -> String {
         .hash(&mut h);
     std::process::id().hash(&mut h);
     format!("{:016x}", h.finish())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::embeds::copy_kit;
+    use crate::core::settings::Settings;
+    use tempfile::TempDir;
+
+    #[test]
+    fn stamp_codebase_id_fills_empty_value_after_reinit_overwrite() {
+        let dir = TempDir::new().unwrap();
+        copy_kit(dir.path(), false).unwrap();
+
+        let mut settings = Settings::load(dir.path()).unwrap();
+        settings.codebase_id.clear();
+        settings.save(dir.path()).unwrap();
+
+        stamp_codebase_id(dir.path()).unwrap();
+
+        let updated = Settings::load(dir.path()).unwrap();
+        assert!(!updated.codebase_id.is_empty());
+    }
+
+    #[test]
+    fn stamp_codebase_id_preserves_existing_value() {
+        let dir = TempDir::new().unwrap();
+        copy_kit(dir.path(), false).unwrap();
+
+        let mut settings = Settings::load(dir.path()).unwrap();
+        settings.codebase_id = "existing-id".to_string();
+        settings.save(dir.path()).unwrap();
+
+        stamp_codebase_id(dir.path()).unwrap();
+
+        let updated = Settings::load(dir.path()).unwrap();
+        assert_eq!(updated.codebase_id, "existing-id");
+    }
 }

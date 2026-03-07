@@ -1,7 +1,10 @@
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
 use crate::app::commands;
 use crate::app::types::{MakeCommands, RuntimeEnv};
+use crate::core::daemon::pump_workflow;
 
 #[derive(Debug, Parser)]
 #[command(name = "agentctl", about = "AI workflow orchestration CLI")]
@@ -32,6 +35,20 @@ pub enum Commands {
         #[command(subcommand)]
         command: MakeCommands,
     },
+    /// Internal: worker process that runs the Node IPC pump loop
+    #[command(hide = true, name = "_run")]
+    Run {
+        #[arg(long)]
+        run_id: String,
+        #[arg(long)]
+        workflow_path: PathBuf,
+        #[arg(long, value_enum, default_value_t = RuntimeEnv::Host)]
+        env: RuntimeEnv,
+        #[arg(long)]
+        project_root: PathBuf,
+        #[arg(long, default_value_t = false)]
+        yolo: bool,
+    },
 }
 
 pub async fn run(cli: Cli) -> anyhow::Result<()> {
@@ -43,6 +60,13 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             MakeCommands::Ticket => commands::make::ticket().await,
             MakeCommands::Worktree { branch } => commands::make::worktree(branch).await,
         },
+        Commands::Run {
+            run_id,
+            workflow_path,
+            env,
+            project_root,
+            yolo,
+        } => pump_workflow(&project_root, &run_id, &workflow_path, env.as_str(), yolo).await,
     }
 }
 
@@ -91,6 +115,34 @@ mod tests {
                 _ => panic!("expected make worktree command"),
             },
             _ => panic!("expected make command"),
+        }
+    }
+
+    #[test]
+    fn internal_run_command_parses_all_flags() {
+        let cli = Cli::try_parse_from([
+            "agentctl",
+            "_run",
+            "--run-id",
+            "run_123",
+            "--workflow-path",
+            "/tmp/duos.js",
+            "--env",
+            "host",
+            "--project-root",
+            "/tmp/project",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Run {
+                run_id, env, yolo, ..
+            } => {
+                assert_eq!(run_id, "run_123");
+                assert_eq!(env, RuntimeEnv::Host);
+                assert!(!yolo);
+            }
+            _ => panic!("expected _run command"),
         }
     }
 }

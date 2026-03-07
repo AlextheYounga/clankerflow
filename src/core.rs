@@ -1,4 +1,9 @@
+pub mod daemon;
 pub mod embeds;
+pub mod capabilities;
+pub mod opencode;
+pub mod ipc;
 pub mod project;
+pub mod runtime;
 pub mod settings;
 pub mod tickets;
