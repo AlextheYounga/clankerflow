@@ -113,8 +113,7 @@ pub async fn pump_workflow(
             break;
         };
 
-        let loop_control =
-            handle_runner_line(&db, &mut runner_stdin, run_id, &line).await?;
+        let loop_control = handle_runner_line(&db, &mut runner_stdin, run_id, &line).await?;
         if matches!(loop_control, LoopControl::Stop) {
             break;
         }

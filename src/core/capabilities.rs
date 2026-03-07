@@ -1,6 +1,6 @@
 use crate::core::opencode;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde_json::Value;
 
 use crate::core::ipc::IpcMessage;
@@ -51,10 +51,12 @@ mod tests {
         let response = dispatch("req_1", request);
 
         assert_eq!(response.kind, "error");
-        assert!(response.payload["error"]
-            .as_str()
-            .unwrap_or("")
-            .contains("unknown capability domain"));
+        assert!(
+            response.payload["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("unknown capability domain")
+        );
     }
 
     #[test]
