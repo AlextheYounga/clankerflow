@@ -1,3 +1,8 @@
+use std::path::Path;
+
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD_NO_PAD;
+
 use crate::core::embeds::copy_kit;
 use crate::core::settings::Settings;
 use crate::db::db::connect;
@@ -49,28 +54,25 @@ fn confirm_overwrite() -> anyhow::Result<bool> {
     Ok(matches!(normalized.as_str(), "y" | "yes"))
 }
 
-fn stamp_codebase_id(project_root: &std::path::Path) -> anyhow::Result<()> {
+fn stamp_codebase_id(project_root: &Path) -> anyhow::Result<()> {
     let mut settings = Settings::load(project_root)?;
     if settings.codebase_id.is_empty() {
-        settings.codebase_id = new_codebase_id();
+        settings.codebase_id = codebase_id_for(project_root);
         settings.save(project_root)?;
     }
     Ok(())
 }
 
-fn new_codebase_id() -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    use std::time::SystemTime;
-
-    let mut h = DefaultHasher::new();
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos()
-        .hash(&mut h);
-    std::process::id().hash(&mut h);
-    format!("{:016x}", h.finish())
+fn codebase_id_for(project_root: &Path) -> String {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        STANDARD_NO_PAD.encode(project_root.as_os_str().as_bytes())
+    }
+    #[cfg(not(unix))]
+    {
+        STANDARD_NO_PAD.encode(project_root.to_string_lossy().as_bytes())
+    }
 }
 
 #[cfg(test)]
@@ -79,6 +81,23 @@ mod tests {
     use crate::core::embeds::copy_kit;
     use crate::core::settings::Settings;
     use tempfile::TempDir;
+
+    #[test]
+    fn codebase_id_for_encodes_path_as_base64_no_padding() {
+        let id = codebase_id_for(Path::new("/srv/project"));
+
+        assert_eq!(id, "L3Nydi9wcm9qZWN0");
+        assert!(!id.contains('='));
+    }
+
+    #[test]
+    fn codebase_id_for_is_deterministic() {
+        let path = Path::new("/tmp/my-project");
+        let a = codebase_id_for(path);
+        let b = codebase_id_for(path);
+
+        assert_eq!(a, b);
+    }
 
     #[test]
     fn stamp_codebase_id_fills_empty_value_after_reinit_overwrite() {
@@ -92,7 +111,8 @@ mod tests {
         stamp_codebase_id(dir.path()).unwrap();
 
         let updated = Settings::load(dir.path()).unwrap();
-        assert!(!updated.codebase_id.is_empty());
+        let expected = codebase_id_for(dir.path());
+        assert_eq!(updated.codebase_id, expected);
     }
 
     #[test]
