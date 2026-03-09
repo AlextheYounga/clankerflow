@@ -1,13 +1,14 @@
 use std::path::{Path, PathBuf};
 
 use crate::app::types::RuntimeEnv;
-use crate::core::daemon::{WorkflowArgs, launch_workflow};
+use crate::core::runner::{WorkflowArgs, run_workflow};
 use crate::core::project::require_project_root;
 use crate::core::settings::Settings;
+use crate::db::entities::workflow_run::RunStatus;
 
 /// # Errors
 /// Returns an error if the project root is not found, settings fail to load,
-/// the workflow path cannot be resolved, or the workflow fails to launch.
+/// the workflow path cannot be resolved, or the workflow fails to run.
 pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let workflow_path = resolve_workflow(&project_root, &name)?;
@@ -24,9 +25,26 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
         env: env.as_str(),
         yolo,
     };
-    let run_id = launch_workflow(&args).await?;
-    println!("workflow started (run id: {run_id})");
+
+    let final_status = run_workflow(&args).await?;
+    print_summary(&name, &final_status);
+
+    if matches!(final_status, RunStatus::Failed) {
+        anyhow::bail!("workflow '{name}' failed");
+    }
+
     Ok(())
+}
+
+fn print_summary(name: &str, status: &RunStatus) {
+    let label = match status {
+        RunStatus::Completed => "completed",
+        RunStatus::Cancelled => "cancelled",
+        RunStatus::Failed => "failed",
+        RunStatus::Running => "running",
+        RunStatus::Pending => "pending",
+    };
+    println!("workflow '{name}' {label}");
 }
 
 fn resolve_workflow(project_root: &Path, name: &str) -> anyhow::Result<PathBuf> {
@@ -130,5 +148,15 @@ mod tests {
         assert!(slash.is_err());
         assert!(backslash.is_err());
         assert!(nested.is_err());
+    }
+
+    #[test]
+    fn print_summary_labels_match_status() {
+        // Verify no panics and correct output labels for all variants.
+        print_summary("test", &RunStatus::Completed);
+        print_summary("test", &RunStatus::Cancelled);
+        print_summary("test", &RunStatus::Failed);
+        print_summary("test", &RunStatus::Running);
+        print_summary("test", &RunStatus::Pending);
     }
 }

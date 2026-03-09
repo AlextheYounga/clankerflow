@@ -1,19 +1,23 @@
-mod process;
 mod protocol;
 mod store;
 
-use std::env;
 use std::fs::File;
 use std::io::{Error as IoError, ErrorKind};
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::path::{Path, PathBuf};
-use std::process::{Command as StdCommand, Stdio};
+use std::process::Stdio;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use anyhow::{Result, anyhow};
+use sea_orm::DatabaseConnection;
 use serde_json::json;
 use tokio::fs::File as TokioFile;
 use tokio::io::{self as tokio_io, AsyncBufReadExt, AsyncWrite, BufReader};
 use tokio::process::{Child, Command};
+use tokio::signal;
+use tokio::time::{Instant, sleep};
 
 use crate::core::capabilities::{CapabilityRequest, dispatch as dispatch_capability};
 use crate::core::ipc::Message;
@@ -21,19 +25,14 @@ use crate::core::runtime::resolve_node_bin;
 use crate::db::connection::connect;
 use crate::db::entities::workflow_run::{RunStatus, WorkflowEnv};
 
-use process::{detach_process, wait_for_child};
 use protocol::{
     LoopControl, parse_capability_request_payload, send_cancel, send_shutdown, write_message,
 };
-use store::{append_run_event, create_run, is_stop_requested, set_status, upsert_workflow};
+use store::{append_run_event, create_run, set_status, upsert_workflow};
 
-struct NodeRunner {
-    child: Child,
-    /// Bidirectional Node IPC channel (`NODE_CHANNEL_FD=3`)
-    ipc: TokioFile,
-}
+const SHUTDOWN_GRACE_PERIOD: Duration = Duration::from_secs(5);
 
-/// Parameters for launching a new workflow run (used by `launch_workflow`).
+/// Parameters for running a workflow synchronously.
 pub struct WorkflowArgs<'a> {
     pub project_root: &'a Path,
     pub workflow_name: &'a str,
@@ -42,88 +41,120 @@ pub struct WorkflowArgs<'a> {
     pub yolo: bool,
 }
 
-/// Parameters for driving the already-created workflow runtime loop.
-///
-/// "Drive" means this function owns the long-lived Rust<->Node IPC loop:
-/// it reads runtime messages, dispatches capability requests, and persists
-/// lifecycle events until the run reaches a terminal state.
-pub struct DriveRuntimeArgs<'a> {
-    pub project_root: &'a Path,
-    pub run_id: i64,
-    pub workflow_path: &'a Path,
-    pub env: &'a str,
-    pub yolo: bool,
+/// Shared cancellation state between the SIGINT handler and the IPC loop.
+struct CancelState {
+    cancelled: AtomicBool,
+    force_kill: AtomicBool,
 }
 
+/// Holds DB + run identity for the IPC loop. Avoids passing five separate
+/// arguments through every layer.
+struct RunContext {
+    db: DatabaseConnection,
+    run_id: i64,
+    cancel: Arc<CancelState>,
+}
+
+/// Run a workflow synchronously, blocking until it completes or is cancelled.
+///
+/// Creates DB records, spawns Node, runs the IPC loop in the foreground, and
+/// returns the final run status. Ctrl+C sends a cancel to Node and waits for
+/// graceful shutdown; a second Ctrl+C force-kills immediately.
+///
 /// # Errors
 /// Returns an error if the database connection fails, the workflow cannot be
-/// registered, the run record cannot be created, or the worker process fails
-/// to spawn.
-pub async fn launch_workflow(args: &WorkflowArgs<'_>) -> Result<i64> {
+/// registered, the run record cannot be created, or the Node runtime fails.
+pub async fn run_workflow(args: &WorkflowArgs<'_>) -> Result<RunStatus> {
+    let ctx = setup_run(args).await?;
+    let mut child = spawn_runner(args.project_root)?;
+    let ipc = child
+        .ipc
+        .take()
+        .ok_or_else(|| anyhow!("IPC channel not available"))?;
+    let (ipc_read, mut ipc_write) = tokio_io::split(ipc);
+
+    send_start_run(&mut ipc_write, args).await?;
+    install_signal_handler(&ctx.cancel);
+
+    let final_status = drive_ipc_loop(&ctx, &mut ipc_write, ipc_read).await?;
+
+    send_shutdown(&mut ipc_write).await;
+    drop(ipc_write);
+    wait_for_child(&mut child.child, &ctx.cancel).await?;
+
+    Ok(final_status)
+}
+
+async fn setup_run(args: &WorkflowArgs<'_>) -> Result<RunContext> {
     let db = connect().await?;
     let workflow_env = parse_runtime_env(args.env)?;
     let workflow_id = upsert_workflow(&db, args.workflow_name, args.workflow_path).await?;
     let run_id = create_run(&db, workflow_id, workflow_env).await?;
 
-    let executable = env::current_exe()
-        .map_err(|error| anyhow!("failed to resolve executable path: {error}"))?;
+    println!("workflow started (run id: {run_id})");
 
-    let mut worker = StdCommand::new(&executable);
-    worker
-        .arg("_run")
-        .arg("--run-id")
-        .arg(run_id.to_string())
-        .arg("--workflow-path")
-        .arg(args.workflow_path)
-        .arg("--env")
-        .arg(args.env)
-        .arg("--project-root")
-        .arg(args.project_root)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+    let cancel = Arc::new(CancelState {
+        cancelled: AtomicBool::new(false),
+        force_kill: AtomicBool::new(false),
+    });
 
-    if args.yolo {
-        worker.arg("--yolo");
-    }
-
-    detach_process(&mut worker);
-    worker
-        .spawn()
-        .map_err(|error| anyhow!("failed to spawn workflow worker: {error}"))?;
-
-    Ok(run_id)
+    Ok(RunContext { db, run_id, cancel })
 }
 
-/// # Errors
-/// Returns an error if the database connection fails, the Node runner cannot
-/// be spawned, IPC communication fails, or the child process exits with an
-/// unexpected status code.
-pub async fn drive_workflow_runtime(args: &DriveRuntimeArgs<'_>) -> Result<()> {
-    let db = connect().await?;
-    let NodeRunner { child, ipc } = spawn_runner(args.project_root)?;
-    let (ipc_read, mut ipc_write) = tokio_io::split(ipc);
-
-    let start_run_message = Message::command(
+async fn send_start_run(
+    ipc_write: &mut (impl AsyncWrite + Unpin),
+    args: &WorkflowArgs<'_>,
+) -> Result<()> {
+    let message = Message::command(
         "cmd_start",
         "start_run",
         json!({
-            "run_id": args.run_id,
+            "run_id": 0, // Node uses its own tracking; DB run_id is Rust-side only
             "workflow_path": args.workflow_path,
             "runtime_env": args.env,
             "yolo": args.yolo,
             "workflow_input": {},
         }),
     );
-    write_message(&mut ipc_write, &start_run_message).await?;
+    write_message(ipc_write, &message).await?;
+    Ok(())
+}
 
+fn install_signal_handler(cancel: &Arc<CancelState>) {
+    let cancel = Arc::clone(cancel);
+    tokio::spawn(async move {
+        loop {
+            if signal::ctrl_c().await.is_err() {
+                break;
+            }
+            if cancel.cancelled.load(Ordering::SeqCst) {
+                cancel.force_kill.store(true, Ordering::SeqCst);
+                break;
+            }
+            cancel.cancelled.store(true, Ordering::SeqCst);
+        }
+    });
+}
+
+async fn drive_ipc_loop(
+    ctx: &RunContext,
+    ipc_write: &mut (impl AsyncWrite + Unpin),
+    ipc_read: tokio_io::ReadHalf<TokioFile>,
+) -> Result<RunStatus> {
     let mut lines = BufReader::new(ipc_read).lines();
+    let mut cancel_sent = false;
+    let mut final_status = RunStatus::Completed;
+
     loop {
-        if is_stop_requested(&db, args.run_id).await? {
-            // Stop is polled from persisted run state so the web UI and daemon stay
-            // eventually consistent even if either side restarts mid-run.
-            send_cancel(&mut ipc_write, args.run_id).await;
-            set_status(&db, args.run_id, RunStatus::Cancelled).await?;
+        if ctx.cancel.force_kill.load(Ordering::SeqCst) {
+            set_status(&ctx.db, ctx.run_id, RunStatus::Cancelled).await?;
+            final_status = RunStatus::Cancelled;
+            break;
+        }
+
+        if ctx.cancel.cancelled.load(Ordering::SeqCst) && !cancel_sent {
+            send_cancel(ipc_write, ctx.run_id).await;
+            cancel_sent = true;
         }
 
         let Some(line) = lines
@@ -134,29 +165,35 @@ pub async fn drive_workflow_runtime(args: &DriveRuntimeArgs<'_>) -> Result<()> {
             break;
         };
 
-        let loop_control = handle_runner_line(&db, &mut ipc_write, args.run_id, &line).await?;
+        let (loop_control, status) =
+            handle_runner_line(&ctx.db, ipc_write, ctx.run_id, &line).await?;
+        if let Some(status) = status {
+            final_status = status;
+        }
         if matches!(loop_control, LoopControl::Stop) {
             break;
         }
     }
 
-    send_shutdown(&mut ipc_write).await;
-    drop(ipc_write);
-    wait_for_child(child).await
+    Ok(final_status)
 }
 
 #[must_use]
-pub fn runner_js_path(project_root: &Path) -> PathBuf {
+pub fn js_path(project_root: &Path) -> PathBuf {
     project_root.join(".agents/.agentctl/lib/runner.js")
+}
+
+struct NodeRunner {
+    child: Child,
+    /// Bidirectional Node IPC channel (`NODE_CHANNEL_FD=3`).
+    /// Taken by `run_workflow` after spawn; `None` once consumed.
+    ipc: Option<TokioFile>,
 }
 
 fn spawn_runner(project_root: &Path) -> Result<NodeRunner> {
     let node_bin = resolve_node_bin()?;
-    let runner_path = runner_js_path(project_root);
+    let runner_path = js_path(project_root);
 
-    // Node enables `process.send` only when an IPC fd is injected at process
-    // startup. We bind that fd explicitly so stdout/stderr remain usable for
-    // human logs while control traffic stays structured on a separate channel.
     let (parent_ipc_fd, child_ipc_fd) = make_socketpair()?;
     let child_ipc_raw = child_ipc_fd.as_raw_fd();
 
@@ -175,7 +212,7 @@ fn spawn_runner(project_root: &Path) -> Result<NodeRunner> {
     unsafe {
         command.pre_exec(move || {
             if libc::dup2(child_ipc_raw, 3) == -1 {
-                return Err(IoError::last_os_error()); // async-signal-safe
+                return Err(IoError::last_os_error());
             }
             libc::close(child_ipc_raw);
             Ok(())
@@ -186,14 +223,16 @@ fn spawn_runner(project_root: &Path) -> Result<NodeRunner> {
         .spawn()
         .map_err(|error| anyhow!("failed to spawn Node runtime: {error}"))?;
 
-    // Drop the child endpoint in the parent so EOF propagates correctly.
     drop(child_ipc_fd);
 
     // SAFETY: parent_ipc_fd is a valid open file descriptor produced by
     // make_socketpair; we consume it via into_raw_fd so it is not double-closed.
     let ipc = TokioFile::from_std(unsafe { File::from_raw_fd(parent_ipc_fd.into_raw_fd()) });
 
-    Ok(NodeRunner { child, ipc })
+    Ok(NodeRunner {
+        child,
+        ipc: Some(ipc),
+    })
 }
 
 fn make_socketpair() -> Result<(OwnedFd, OwnedFd)> {
@@ -218,21 +257,19 @@ fn make_socketpair() -> Result<(OwnedFd, OwnedFd)> {
 }
 
 async fn handle_runner_line(
-    db: &sea_orm::DatabaseConnection,
+    db: &DatabaseConnection,
     ipc_write: &mut (impl AsyncWrite + Unpin),
     run_id: i64,
     line: &str,
-) -> Result<LoopControl> {
+) -> Result<(LoopControl, Option<RunStatus>)> {
     let trimmed_line = line.trim();
     if trimmed_line.is_empty() {
-        return Ok(LoopControl::Continue);
+        return Ok((LoopControl::Continue, None));
     }
 
     let message: Message = match serde_json::from_str(trimmed_line) {
         Ok(message) => message,
         Err(error) => {
-            // Bad frames are persisted as run events so post-mortem debugging can
-            // distinguish protocol drift from workflow-level failures.
             append_run_event(
                 db,
                 run_id,
@@ -240,7 +277,7 @@ async fn handle_runner_line(
                 json!({ "error": error.to_string() }),
             )
             .await?;
-            return Ok(LoopControl::Continue);
+            return Ok((LoopControl::Continue, None));
         }
     };
 
@@ -255,35 +292,36 @@ async fn handle_runner_line(
             {
                 return Err(anyhow!("failed to write capability response: {error}"));
             }
-            Ok(LoopControl::Continue)
+            Ok((LoopControl::Continue, None))
         }
         "event" => {
             append_run_event(db, run_id, &message.name, message.payload.clone()).await?;
             update_run_status_for_event(db, run_id, &message).await
         }
-        _ => Ok(LoopControl::Continue),
+        _ => Ok((LoopControl::Continue, None)),
     }
 }
 
 async fn update_run_status_for_event(
-    db: &sea_orm::DatabaseConnection,
+    db: &DatabaseConnection,
     run_id: i64,
     message: &Message,
-) -> Result<LoopControl> {
+) -> Result<(LoopControl, Option<RunStatus>)> {
     match message.name.as_str() {
         "run_started" => {
             set_status(db, run_id, RunStatus::Running).await?;
-            Ok(LoopControl::Continue)
+            Ok((LoopControl::Continue, Some(RunStatus::Running)))
         }
         "run_finished" => {
-            set_status(db, run_id, run_finished_status(message)).await?;
-            Ok(LoopControl::Stop)
+            let status = run_finished_status(message);
+            set_status(db, run_id, status.clone()).await?;
+            Ok((LoopControl::Stop, Some(status)))
         }
         "run_failed" => {
             set_status(db, run_id, RunStatus::Failed).await?;
-            Ok(LoopControl::Stop)
+            Ok((LoopControl::Stop, Some(RunStatus::Failed)))
         }
-        _ => Ok(LoopControl::Continue),
+        _ => Ok((LoopControl::Continue, None)),
     }
 }
 
@@ -296,8 +334,6 @@ fn parse_runtime_env(env: &str) -> Result<WorkflowEnv> {
 }
 
 fn run_finished_status(message: &Message) -> RunStatus {
-    // The runner only sends explicit CANCELLED vs SUCCEEDED today; defaulting to
-    // Completed keeps older/newer runner versions forward-compatible.
     match message
         .payload
         .get("status")
@@ -305,6 +341,32 @@ fn run_finished_status(message: &Message) -> RunStatus {
     {
         Some("CANCELLED") => RunStatus::Cancelled,
         _ => RunStatus::Completed,
+    }
+}
+
+async fn wait_for_child(child: &mut Child, cancel: &Arc<CancelState>) -> Result<()> {
+    let deadline = Instant::now() + SHUTDOWN_GRACE_PERIOD;
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let code = status.code().unwrap_or(-1);
+                // SIGINT-driven exits surface as 130; treat as controlled cancellation.
+                if code != 0 && code != 130 {
+                    return Err(anyhow!("Node runner exited with status {code}"));
+                }
+                return Ok(());
+            }
+            Ok(None) => {}
+            Err(error) => return Err(anyhow!("error waiting for Node runner: {error}")),
+        }
+
+        if cancel.force_kill.load(Ordering::SeqCst) || Instant::now() >= deadline {
+            let _ = child.kill().await;
+            return Ok(());
+        }
+
+        sleep(Duration::from_millis(50)).await;
     }
 }
 
@@ -337,5 +399,44 @@ mod tests {
         let error = parse_capability_request_payload(&payload).unwrap_err();
 
         assert!(error.to_string().contains("payload.request_id"));
+    }
+
+    #[test]
+    fn run_finished_status_returns_cancelled_for_cancelled_payload() {
+        let message = Message::command("evt_1", "run_finished", json!({ "status": "CANCELLED" }));
+
+        assert!(matches!(
+            run_finished_status(&message),
+            RunStatus::Cancelled
+        ));
+    }
+
+    #[test]
+    fn run_finished_status_defaults_to_completed() {
+        let message = Message::command("evt_1", "run_finished", json!({}));
+
+        assert!(matches!(
+            run_finished_status(&message),
+            RunStatus::Completed
+        ));
+    }
+
+    #[test]
+    fn parse_runtime_env_accepts_valid_values() {
+        assert!(matches!(
+            parse_runtime_env("host").unwrap(),
+            WorkflowEnv::Host
+        ));
+        assert!(matches!(
+            parse_runtime_env("container").unwrap(),
+            WorkflowEnv::Container
+        ));
+    }
+
+    #[test]
+    fn parse_runtime_env_rejects_unknown() {
+        let error = parse_runtime_env("cloud").unwrap_err();
+
+        assert!(error.to_string().contains("unknown runtime env"));
     }
 }

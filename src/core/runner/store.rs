@@ -1,16 +1,14 @@
 use std::path::Path;
 use std::process;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
 };
 
 use crate::db::entities::event::ActiveModel as EventActive;
 use crate::db::entities::workflow::ActiveModel as WorkflowActive;
-use crate::db::entities::workflow_run::{
-    ActiveModel as WorkflowRunActive, Entity as WorkflowRun, RunStatus, WorkflowEnv,
-};
+use crate::db::entities::workflow_run::{ActiveModel as WorkflowRunActive, RunStatus, WorkflowEnv};
 
 pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -> Result<i64> {
     use crate::db::entities::workflow::{Column as WorkflowColumn, Entity as Workflow};
@@ -81,16 +79,6 @@ pub async fn set_status(db: &DatabaseConnection, id: i64, status: RunStatus) -> 
     .await?;
 
     Ok(())
-}
-
-pub async fn is_stop_requested(db: &DatabaseConnection, id: i64) -> Result<bool> {
-    let run = WorkflowRun::find_by_id(id)
-        .one(db)
-        .await?
-        .ok_or_else(|| anyhow!("workflow run not found: {id}"))?;
-    // Cancellation is represented as desired state in the DB so any worker loop
-    // can observe it, even if the original triggering process is gone.
-    Ok(run.status == RunStatus::Cancelled)
 }
 
 pub async fn append_run_event(

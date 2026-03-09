@@ -1,5 +1,5 @@
 pub mod capabilities;
-pub mod daemon;
+pub mod runner;
 pub mod embeds;
 pub mod ipc;
 pub mod opencode;

@@ -1,10 +1,7 @@
-use std::path::PathBuf;
-
 use clap::{Parser, Subcommand};
 
 use crate::app::commands;
 use crate::app::types::{MakeCommands, RuntimeEnv};
-use crate::core::daemon::{DriveRuntimeArgs, drive_workflow_runtime};
 
 #[derive(Debug, Parser)]
 #[command(name = "agentctl", about = "AI workflow orchestration CLI")]
@@ -28,26 +25,12 @@ pub enum Commands {
         #[arg(long, default_value_t = false)]
         yolo: bool,
     },
-    /// TUI for managing workflow runs
+    /// Open the `OpenCode` web UI for this project
     Manage,
     /// Generate project artifacts
     Make {
         #[command(subcommand)]
         command: MakeCommands,
-    },
-    /// Internal: worker process that runs the Node IPC runtime loop
-    #[command(hide = true, name = "_run")]
-    Run {
-        #[arg(long)]
-        run_id: i64,
-        #[arg(long)]
-        workflow_path: PathBuf,
-        #[arg(long, value_enum, default_value_t = RuntimeEnv::Host)]
-        env: RuntimeEnv,
-        #[arg(long)]
-        project_root: PathBuf,
-        #[arg(long, default_value_t = false)]
-        yolo: bool,
     },
 }
 
@@ -62,22 +45,6 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             MakeCommands::Ticket => commands::make::ticket(),
             MakeCommands::Worktree { branch } => commands::make::worktree(&branch),
         },
-        Commands::Run {
-            run_id,
-            workflow_path,
-            env,
-            project_root,
-            yolo,
-        } => {
-            let args = DriveRuntimeArgs {
-                project_root: &project_root,
-                run_id,
-                workflow_path: &workflow_path,
-                env: env.as_str(),
-                yolo,
-            };
-            drive_workflow_runtime(&args).await
-        }
     }
 }
 
@@ -126,34 +93,6 @@ mod tests {
                 _ => panic!("expected make worktree command"),
             },
             _ => panic!("expected make command"),
-        }
-    }
-
-    #[test]
-    fn internal_run_command_parses_all_flags() {
-        let cli = Cli::try_parse_from([
-            "agentctl",
-            "_run",
-            "--run-id",
-            "42",
-            "--workflow-path",
-            "/tmp/duos.js",
-            "--env",
-            "host",
-            "--project-root",
-            "/tmp/project",
-        ])
-        .unwrap();
-
-        match cli.command {
-            Commands::Run {
-                run_id, env, yolo, ..
-            } => {
-                assert_eq!(run_id, 42);
-                assert_eq!(env, RuntimeEnv::Host);
-                assert!(!yolo);
-            }
-            _ => panic!("expected _run command"),
         }
     }
 }
