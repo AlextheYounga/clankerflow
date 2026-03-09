@@ -1,133 +1,177 @@
-# Phase 3: Node IPC Runtime
+# Phase 3: Node IPC Runtime (Synchronous)
 
 ## Goal
 
-Wire `agentctl work` to a real background runtime:
+Wire `agentctl work` to a real workflow runtime:
 
-- Rust launches Node and owns process lifecycle.
+- Rust spawns Node directly and owns process lifecycle.
 - Rust and Node communicate over line-delimited JSON IPC.
 - Run lifecycle events are persisted to SQLite.
-- `work` returns immediately with a `run_id` while a detached worker continues in the background.
+- `work` blocks the terminal until the workflow completes (or the user hits Ctrl+C).
+- Node stdout/stderr pass through to the user's terminal for visibility.
 
-## What We Implemented
+v1 intentionally avoids daemon/background execution to keep the debugging
+surface simple. See `docs/future/daemon.md` for the upgrade path.
 
-### Detached worker model
+## Execution Model
 
-`agentctl work <name>` now:
+```
+agentctl work duos
+  │
+  ├─ validate project / workflow / settings
+  ├─ create workflow + run DB records
+  ├─ spawn Node (runner.js) as a child process
+  │    ├─ IPC on fd 3 (socketpair)
+  │    ├─ stdout → inherited (user terminal)
+  │    └─ stderr → inherited (user terminal)
+  ├─ send start_run over IPC
+  ├─ enter IPC read loop (blocks until terminal event or EOF)
+  │    ├─ handle request messages (capability dispatch)
+  │    ├─ handle event messages (DB persist + status transitions)
+  │    └─ on SIGINT → send cancel_run, await graceful shutdown
+  ├─ send shutdown, wait with grace period, kill if needed
+  └─ print final status and exit
+```
 
-1. Validates project/workflow/settings.
-2. Creates workflow + run records.
-3. Re-execs itself as hidden `_run` worker.
-4. Prints `workflow started: <run_id>` and exits.
+No hidden `_run` command. No detached process. No `setsid`. The `work`
+command itself drives the entire lifecycle in a single process.
 
-The `_run` worker calls `drive_workflow_runtime`, which owns the Node child and the full IPC loop.
+## What Changes (relative to the previous daemon-based Phase 3)
 
-### IPC runtime bridge
+### Removed: detached worker model
 
-Rust (`src/core/daemon.rs`) now:
+- `launch_workflow` no longer re-execs itself as a hidden `_run` worker.
+- The hidden `_run` CLI command is removed from `src/app/cli.rs`.
+- `daemon/process.rs` (`detach_process`, `setsid`) is removed.
+- `is_stop_requested` DB polling for cancellation is removed — cancellation
+  is now handled in-process via SIGINT.
 
-- spawns Node runner (`.agents/.agentctl/lib/runner.js`),
-- sends `start_run`,
-- handles incoming `event` and `request` messages,
-- maps run terminal events to DB status updates,
-- sends `cancel_run` when stop is requested,
-- sends `shutdown` and waits with a grace period before kill.
+### Changed: `work.rs` drives the runtime directly
 
-Capability requests are parsed from `payload.capability`, `payload.params`, and
-`payload.request_id` to match `runtime/src/runner.ts`.
+`commands::work::run()` calls a function (e.g. `run_workflow`) that:
 
-### Build pipeline for runtime assets
+1. Creates DB records (workflow + run).
+2. Spawns Node directly (no intermediate detached process).
+3. Runs the IPC loop to completion.
+4. Updates final run status in DB.
+5. Prints a summary and exits.
 
-`build.rs` bundles:
+### Changed: Node stdout/stderr are inherited
 
-- `runtime/src/runner.ts` -> `src/kit/.agentctl/lib/runner.js`
-- `runtime/src/helpers.ts` -> `src/kit/.agentctl/lib/helpers.js`
+In the daemon model, the detached worker's own stdio was `/dev/null`, so Node
+output was invisible. In the synchronous model, `Stdio::inherit()` is used for
+both stdout and stderr on the Node child, so `console.log` and error output
+appear in the user's terminal.
 
-and reruns when `runtime/src/`, `runtime/package.json`, or `runtime/package-lock.json` changes.
+### Added: SIGINT handling
 
-### Node-side command execution
+Register a signal handler (or use `tokio::signal`) so Ctrl+C during a running
+workflow:
 
-`exec` moved to the Node runtime context.
+1. Sends `cancel_run` to Node over IPC.
+2. Waits for Node to acknowledge with a `run_finished` or `run_failed` event
+   (with a grace period timeout).
+3. If Node doesn't exit within the grace period, sends `shutdown` then kills.
+4. Sets run status to `Cancelled` in DB.
+5. Exits with a non-zero code.
 
-- `runtime/src/context.ts` now exposes `ctx.exec(command, args?)`.
-- It uses `resolveExecSpec(...)` + `runExec(...)` in Node.
-- Rust no longer exposes an `exec` IPC capability.
+A second Ctrl+C during the grace period should force-kill immediately.
 
-## Files Added
+### Simplified: daemon.rs restructure
 
-- `build.rs`
-- `src/core/ipc.rs`
-- `src/core/runtime.rs`
-- `src/core/capabilities.rs`
-- `src/core/opencode.rs`
-- `src/db/migration/m0005_add_run_id_to_workflow_runs.rs`
+The daemon module collapses. The sub-module split (`process.rs`, `protocol.rs`,
+`store.rs`) made sense for the daemon model where process management was a
+first-class concern. In the synchronous model:
+
+- `process.rs` is removed entirely (no detach, no setsid).
+- `protocol.rs` and `store.rs` remain as they are — IPC serialization and DB
+  operations are still needed.
+- The top-level `daemon.rs` is renamed or restructured to reflect that it no
+  longer manages a daemon. A name like `workflow_runner.rs` or keeping
+  `daemon.rs` with clearer function names both work.
+
+## What Stays
+
+### IPC transport (socketpair + fd 3)
+
+Unchanged. Rust creates a Unix socketpair, dup2s the child end to fd 3, sets
+`NODE_CHANNEL_FD=3` and `NODE_CHANNEL_SERIALIZATION_MODE=json`. Node uses
+`process.send` / `process.on("message")`. Newline-delimited JSON frames.
+
+### IPC message protocol
+
+Unchanged. Same `IpcMessage` struct, same `kind` variants (`command`,
+`response`, `request`, `event`, `error`), same `v1` protocol version.
+
+### Capability dispatch
+
+Unchanged. `src/core/capabilities.rs` routes `request` messages to capability
+handlers. `src/core/opencode.rs` handles OpenCode capabilities (still stubs
+until Phase 5).
+
+### Build pipeline
+
+Unchanged. `build.rs` bundles `runtime/src/runner.ts` and
+`runtime/src/helpers.ts` via esbuild into `src/kit/.agentctl/lib/`.
+
+### DB persistence
+
+Unchanged. Workflow + run records are created before Node is spawned. Events
+are appended during the IPC loop. Terminal status is set on completion.
+
+### Node runtime code
+
+Unchanged. `runtime/src/runner.ts`, `ipc.ts`, `context.ts`, `protocol.ts`,
+`loader.ts`, and all helpers remain as-is. The Node side doesn't know or care
+whether Rust is a daemon or a foreground process.
+
+### protocol.rs (IPC serialization)
+
+Unchanged. `LoopControl`, `parse_capability_request_payload`, `write_message`,
+`send_cancel`, `send_shutdown` all remain.
+
+### store.rs (DB operations)
+
+Mostly unchanged. `upsert_workflow`, `create_run`, `set_status`,
+`append_run_event` all remain. `is_stop_requested` is removed since
+cancellation is now in-process via SIGINT rather than DB polling.
 
 ## Files Changed
 
 - `src/app/cli.rs`
-  - Added hidden `_run` command with `--run-id`, `--workflow-path`, `--env`, `--project-root`, `--yolo`.
+  - Remove the hidden `_run` command and its args.
 - `src/app/commands/work.rs`
-  - Replaced stub with real launch flow.
-- `src/app/commands/init.rs`
-  - Always ensures `codebase_id` is stamped, including re-init.
-- `src/core.rs`
-  - Added module exports for `daemon`, `ipc`, `runtime`, `capabilities`, `opencode`.
-- `src/core/daemon.rs`
-  - Full process + IPC pump implementation.
-- `src/db/db.rs`
-  - Unified DB connection errors to `anyhow::Result`.
-- `src/db/entities/workflow_run.rs`
-  - Added `run_id` column to entity model.
-- `src/db/migration.rs`
-  - Registered migration `m0005_add_run_id_to_workflow_runs`.
-- `runtime/src/context.ts`
-  - Added Node-side `exec` helper.
-- `runtime/tests/context.test.ts`
-  - Added `ctx.exec(...)` behavior test.
+  - Replace `launch_workflow` call with direct `run_workflow` call that blocks.
+- `src/core/daemon.rs` (or renamed)
+  - Remove `launch_workflow` (the detach + re-exec function).
+  - Collapse `drive_workflow_runtime` into a simpler `run_workflow` that
+    spawns Node, runs the IPC loop, and returns the final status.
+  - Remove `detach_process` / `setsid` usage.
+  - Add SIGINT handler wiring.
+- `src/core/daemon/process.rs`
+  - Remove entirely.
+- `src/core/daemon/store.rs`
+  - Remove `is_stop_requested`.
 
-## Naming/Structure Updates
+## Tests
 
-- `handlers` renamed to `capabilities`.
-- `handlers/agent.rs` renamed/moved to `opencode.rs`.
-- No `mod.rs` files remain.
+### Updated
 
-## Tests Added/Updated
+- `src/core/daemon.rs` tests: remove detach-related assertions, add tests for
+  the synchronous run flow (spawn → IPC loop → completion).
+- `src/app/commands/work.rs` tests: update to reflect blocking behavior.
 
-- `src/core/ipc.rs` tests: message shape + round-trip behavior.
+### Unchanged
+
+- `src/core/ipc.rs` tests: message shape + round-trip.
 - `src/core/runtime.rs` tests: node binary resolution.
-- `src/core/daemon.rs` tests: capability request payload parsing.
-- `src/core/capabilities.rs` tests: routing + required param validation.
-- `src/core/opencode.rs` tests: capability name validation + subscribe ack.
-- `src/app/commands/init.rs` tests: `codebase_id` regeneration/preservation.
-- `runtime/tests/context.test.ts`: `ctx.exec(...)` host execution.
+- `src/core/capabilities.rs` tests: routing + param validation.
+- `src/core/opencode.rs` tests: capability name validation.
+- `runtime/tests/context.test.ts`: `ctx.exec(...)` behavior.
 
-## IPC Transport: Node Built-in Channel (`process.send`)
+## Out of Scope
 
-Switched from a custom fd 3/4 transport to Node's built-in child IPC channel.
-
-**Why:** this is the native abstraction Node already provides (`process.send` / `process.on("message")`), avoids custom stream plumbing in JavaScript, and still keeps stdout/stderr free for normal logging.
-
-**How it works:**
-
-- Rust creates a Unix `socketpair` and keeps one endpoint.
-- In `pre_exec`, Rust `dup2`s the child endpoint to fd `3`.
-- Rust sets `NODE_CHANNEL_FD=3` and `NODE_CHANNEL_SERIALIZATION_MODE=json` when spawning Node.
-- Node automatically enables the built-in IPC API (`process.send` + `process.on("message")`).
-- Rust and Node exchange newline-delimited JSON `IpcMessage` frames over that one bidirectional channel.
-
-```
-Rust process                         Node process
-┌──────────────────┐                 ┌──────────────────┐
-│ socketpair end A │◄── fd 3 channel ►│ socketpair end B │
-│ (read + write)   │   byte stream    │ (read + write)   │
-└──────────────────┘                 └──────────────────┘
-```
-
-Node's stdin/stdout/stderr are not used for IPC. `console.log` is safe.
-
-## Out of Scope for Phase 3
-
-- Real OpenCode client integration (capabilities are still stubs returning structured errors).
-- Full container lifecycle management details.
-- `manage` TUI runtime controls.
+- Background/daemon execution (see `docs/future/daemon.md`).
+- Real OpenCode client integration (capabilities are stubs until Phase 5).
+- Container lifecycle management.
 - `make validate` workflow linting.
