@@ -51,24 +51,28 @@ export function resolveExecSpec(
   };
 }
 
+function createLogContext(emit: EventEmitter) {
+  const log = (level: string, message: string) =>
+    emit("log", { level, target: "workflow", message });
+  return {
+    debug: (message: string) => log("debug", message),
+    info:  (message: string) => log("info",  message),
+    warn:  (message: string) => log("warn",  message),
+    error: (message: string) => log("error", message),
+  };
+}
+
 export function createContext(options: RunnerContextOptions) {
   return {
     yolo: options.yolo,
     ticket: options.ticket ?? null,
     agent: {
       run: (input: Record<string, unknown>) =>
-        options.invokeCapability("session_run", {
-          yolo: options.yolo,
-          ...input,
-        }),
+        options.invokeCapability("session_run", { yolo: options.yolo, ...input }),
       events: (sessionId: string) =>
-        options.invokeCapability("session_events_subscribe", {
-          session_id: sessionId,
-        }),
+        options.invokeCapability("session_events_subscribe", { session_id: sessionId }),
       messages: (sessionId: string) =>
-        options.invokeCapability("session_messages_list", {
-          session_id: sessionId,
-        }),
+        options.invokeCapability("session_messages_list", { session_id: sessionId }),
       cancel: (sessionId: string) =>
         options.invokeCapability("session_cancel", { session_id: sessionId }),
     },
@@ -81,32 +85,7 @@ export function createContext(options: RunnerContextOptions) {
       );
       return runExec(spec.bin, spec.args, spec.cwd, options.signal);
     },
-    log: {
-      debug: (message: string) =>
-        options.emitEvent("log", {
-          level: "debug",
-          target: "workflow",
-          message,
-        }),
-      info: (message: string) =>
-        options.emitEvent("log", {
-          level: "info",
-          target: "workflow",
-          message,
-        }),
-      warn: (message: string) =>
-        options.emitEvent("log", {
-          level: "warn",
-          target: "workflow",
-          message,
-        }),
-      error: (message: string) =>
-        options.emitEvent("log", {
-          level: "error",
-          target: "workflow",
-          message,
-        }),
-    },
+    log: createLogContext(options.emitEvent),
     sleep: (ms: number) => sleepWithSignal(ms, options.signal),
     signal: options.signal,
   };

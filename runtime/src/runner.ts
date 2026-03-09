@@ -11,6 +11,11 @@ interface ActiveRun {
   controller: AbortController;
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
 class Runner {
   private readonly activeRuns = new Map<number, ActiveRun>();
   private ipc: IpcRouter | null = null;
@@ -34,7 +39,24 @@ class Runner {
     });
 
     this.ipc.onCommand("shutdown", () => this.shutdown());
+  }
 
+  private emit(name: string, payload: Record<string, unknown>): void {
+    this.ipc?.emit(name, payload);
+  }
+
+  private emitStep(runId: number, status: string): void {
+    this.emit("step_finished", {
+      run_id: runId,
+      step_id: `${runId}:workflow`,
+      status,
+      duration_ms: 0,
+      finished_at: new Date().toISOString(),
+    });
+  }
+
+  private emitRunFinished(runId: number, status: string): void {
+    this.emit("run_finished", { run_id: runId, status, finished_at: new Date().toISOString() });
   }
 
   private async executeRun(payload: StartRunPayload): Promise<void> {
@@ -47,7 +69,6 @@ class Runner {
       workflow_name: "unknown",
       started_at: new Date().toISOString(),
     });
-
     this.emit("step_started", {
       run_id: payload.run_id,
       step_id: `${payload.run_id}:workflow`,
@@ -56,90 +77,70 @@ class Runner {
     });
 
     try {
-      const module = await loadWorkflowModule(payload.workflow_path);
-      this.emit("log", {
-        run_id: payload.run_id,
-        level: "info",
-        target: "runner",
-        message: `loaded workflow ${module.meta.id}`,
-        timestamp: new Date().toISOString(),
-      });
-
-      const ctx = createContext({
-        workspaceRoot: process.cwd(),
-        runtimeEnv: payload.runtime_env,
-        yolo: payload.yolo,
-        signal: controller.signal,
-        ticket: payload.workflow_input.ticket,
-        emitEvent: (name, eventPayload) => {
-          this.emit(name, {
-            run_id: payload.run_id,
-            ...eventPayload,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        invokeCapability: (capability, params) => {
-          const ipc = this.ipc;
-          if (ipc === null) return Promise.reject(new Error("ipc not ready"));
-          return ipc.request(
-            "capability_request",
-            { run_id: payload.run_id, capability, params },
-            controller.signal,
-          );
-        },
-      });
-
-      await module.run(ctx);
-
-      this.emit("step_finished", {
-        run_id: payload.run_id,
-        step_id: `${payload.run_id}:workflow`,
-        status: "ok",
-        duration_ms: 0,
-        finished_at: new Date().toISOString(),
-      });
-      this.emit("run_finished", {
-        run_id: payload.run_id,
-        status: "SUCCEEDED",
-        finished_at: new Date().toISOString(),
-      });
+      await this.runWorkflow(payload, controller);
+      this.emitStep(payload.run_id, "ok");
+      this.emitRunFinished(payload.run_id, "SUCCEEDED");
     } catch (error) {
-      if (controller.signal.aborted) {
-        this.emit("step_finished", {
-          run_id: payload.run_id,
-          step_id: `${payload.run_id}:workflow`,
-          status: "cancelled",
-          duration_ms: 0,
-          finished_at: new Date().toISOString(),
-        });
-        this.emit("run_finished", {
-          run_id: payload.run_id,
-          status: "CANCELLED",
-          finished_at: new Date().toISOString(),
-        });
-      } else {
-        this.emit("step_finished", {
-          run_id: payload.run_id,
-          step_id: `${payload.run_id}:workflow`,
-          status: "failed",
-          duration_ms: 0,
-          finished_at: new Date().toISOString(),
-        });
-        this.emit("run_failed", {
-          run_id: payload.run_id,
-          error_code: "WORKFLOW_ERROR",
-          message: errorMessage(error),
-          details: {},
-          failed_at: new Date().toISOString(),
-        });
-      }
+      this.emitRunError(payload.run_id, error, controller.signal.aborted);
     } finally {
       this.activeRuns.delete(payload.run_id);
     }
   }
 
-  private emit(name: string, payload: Record<string, unknown>): void {
-    this.ipc?.emit(name, payload);
+  private async runWorkflow(
+    payload: StartRunPayload,
+    controller: AbortController,
+  ): Promise<void> {
+    const module = await loadWorkflowModule(payload.workflow_path);
+    this.emit("log", {
+      run_id: payload.run_id,
+      level: "info",
+      target: "runner",
+      message: `loaded workflow ${module.meta.id}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    const ctx = createContext({
+      workspaceRoot: process.cwd(),
+      runtimeEnv: payload.runtime_env,
+      yolo: payload.yolo,
+      signal: controller.signal,
+      ticket: payload.workflow_input.ticket,
+      emitEvent: (name, eventPayload) => {
+        this.emit(name, {
+          run_id: payload.run_id,
+          ...eventPayload,
+          timestamp: new Date().toISOString(),
+        });
+      },
+      invokeCapability: (capability, params) => {
+        const ipc = this.ipc;
+        if (ipc === null) return Promise.reject(new Error("ipc not ready"));
+        return ipc.request(
+          "capability_request",
+          { run_id: payload.run_id, capability, params },
+          controller.signal,
+        );
+      },
+    });
+
+    await module.run(ctx);
+  }
+
+  private emitRunError(runId: number, error: unknown, isAborted: boolean): void {
+    if (isAborted) {
+      this.emitStep(runId, "cancelled");
+      this.emitRunFinished(runId, "CANCELLED");
+    } else {
+      this.emitStep(runId, "failed");
+      this.emit("run_failed", {
+        run_id: runId,
+        error_code: "WORKFLOW_ERROR",
+        message: errorMessage(error),
+        details: {},
+        failed_at: new Date().toISOString(),
+      });
+    }
   }
 
   private async waitForRunDrain(): Promise<void> {
@@ -155,11 +156,6 @@ class Runner {
     await this.waitForRunDrain();
     process.exit(0);
   }
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }
 
 new Runner().start();

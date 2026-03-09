@@ -126,7 +126,8 @@ export default tseslint.config(
         {
           selector: "variable",
           types: ["boolean"],
-          format: ["camelCase"],
+          // After stripping the prefix, the remainder is PascalCase (e.g. isActive → Active).
+          format: ["PascalCase"],
           prefix: ["is", "has", "can", "should", "did", "will"],
           leadingUnderscore: "allow",
           trailingUnderscore: "allow",
@@ -134,7 +135,8 @@ export default tseslint.config(
         {
           selector: "parameter",
           types: ["boolean"],
-          format: ["camelCase"],
+          // After stripping the prefix, the remainder is PascalCase (e.g. isActive → Active).
+          format: ["PascalCase"],
           prefix: ["is", "has", "can", "should", "did", "will"],
           leadingUnderscore: "allow",
           trailingUnderscore: "allow",

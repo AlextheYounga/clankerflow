@@ -30,69 +30,63 @@ function extractMessage(error: unknown): string {
   return String(error);
 }
 
+async function buildIndex(ticketsDir: string) {
+  const { tickets, errors } = await scanTickets(ticketsDir);
+  return { index: new TicketLookup(tickets), errors };
+}
+
+function notFound(id: string) {
+  return { ok: false as const, error: `Ticket not found: ${id}` };
+}
+
+async function wrapOp<T>(fn: () => Promise<T>): Promise<T | { ok: false; error: string }> {
+  try {
+    return await fn();
+  } catch (error: unknown) {
+    return { ok: false, error: extractMessage(error) };
+  }
+}
+
 export function createTicketContext(workspaceRoot: string): TicketContext {
   const ticketsDir = path.join(workspaceRoot, ".agents", "tickets");
-
-  async function getIndex() {
-    const { tickets, errors } = await scanTickets(ticketsDir);
-    return { index: new TicketLookup(tickets), errors };
-  }
+  const getIndex = () => buildIndex(ticketsDir);
 
   return {
     list: async () => {
       try {
-        const { tickets, errors } = await scanTickets(ticketsDir);
-        return { ok: true, tickets, errors };
+        const result = await scanTickets(ticketsDir);
+        return { ok: true, ...result };
       } catch (error: unknown) {
-        return {
-          ok: false,
-          tickets: [],
-          errors: [extractMessage(error)],
-          error: extractMessage(error),
-        };
+        const msg = extractMessage(error);
+        return { ok: false, tickets: [], errors: [msg], error: msg };
       }
     },
-    get: async ({ id }) => {
-      try {
+    get: ({ id }) =>
+      wrapOp(async () => {
         const { index } = await getIndex();
         const ticket = index.get(id);
-        if (ticket === undefined) return { ok: false, error: `Ticket not found: ${id}` };
-        return { ok: true, ticket };
-      } catch (error: unknown) {
-        return { ok: false, error: extractMessage(error) };
-      }
-    },
-    getNext: async (options) => {
-      try {
+        return ticket === undefined ? notFound(id) : { ok: true as const, ticket };
+      }),
+    getNext: (options) =>
+      wrapOp(async () => {
         const status = normalizeTicketStatus(options?.status ?? "OPEN");
         const { index } = await getIndex();
-        const ticket = index.getNextByStatus(status);
-        return { ok: true, ticket };
-      } catch (error: unknown) {
-        return { ok: false, error: extractMessage(error) };
-      }
-    },
-    updateStatus: async ({ id, status }) => {
-      try {
+        return { ok: true as const, ticket: index.getNextByStatus(status) };
+      }),
+    updateStatus: ({ id, status }) =>
+      wrapOp(async () => {
         const { index } = await getIndex();
         const ticket = index.get(id);
-        if (ticket === undefined) return { ok: false, error: `Ticket not found: ${id}` };
-        const updated = await updateTicketStatus(ticket, status);
-        return { ok: true, ticket: updated };
-      } catch (error: unknown) {
-        return { ok: false, error: extractMessage(error) };
-      }
-    },
-    comment: async ({ id, text, section }) => {
-      try {
+        if (ticket === undefined) return notFound(id);
+        return { ok: true as const, ticket: await updateTicketStatus(ticket, status) };
+      }),
+    comment: ({ id, text, section }) =>
+      wrapOp(async () => {
         const { index } = await getIndex();
         const ticket = index.get(id);
-        if (ticket === undefined) return { ok: false, error: `Ticket not found: ${id}` };
+        if (ticket === undefined) return notFound(id);
         await addTicketComment(ticket, text, section);
-        return { ok: true };
-      } catch (error: unknown) {
-        return { ok: false, error: extractMessage(error) };
-      }
-    },
+        return { ok: true as const };
+      }),
   };
 }

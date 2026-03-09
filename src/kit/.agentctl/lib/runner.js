@@ -4376,13 +4376,18 @@ var require_gray_matter = __commonJS({
 });
 
 // runtime/src/protocol.ts
+function isVersionedObject(value) {
+  return typeof value === "object" && value !== null && "v" in value && value.v === "v1";
+}
+function hasRequiredFields(msg) {
+  return typeof msg.id === "string" && typeof msg.kind === "string" && typeof msg.name === "string" && typeof msg.payload === "object" && msg.payload !== null;
+}
 function parseIpcMessage(input) {
   const parsed = typeof input === "string" ? JSON.parse(input) : input;
-  if (typeof parsed !== "object" || parsed === null || !("v" in parsed) || parsed.v !== "v1") {
+  if (!isVersionedObject(parsed)) {
     throw new Error("unsupported protocol version");
   }
-  const msg = parsed;
-  if (typeof msg.id !== "string" || typeof msg.kind !== "string" || typeof msg.name !== "string" || typeof msg.payload !== "object" || msg.payload === null) {
+  if (!hasRequiredFields(parsed)) {
     throw new Error("invalid IPC message");
   }
   return parsed;
@@ -9406,68 +9411,56 @@ function extractMessage(error) {
   if (error instanceof Error) return error.message;
   return String(error);
 }
+async function buildIndex(ticketsDir) {
+  const { tickets: tickets2, errors } = await scanTickets(ticketsDir);
+  return { index: new TicketLookup(tickets2), errors };
+}
+function notFound(id) {
+  return { ok: false, error: `Ticket not found: ${id}` };
+}
+async function wrapOp(fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    return { ok: false, error: extractMessage(error) };
+  }
+}
 function createTicketContext(workspaceRoot2) {
   const ticketsDir = path3.join(workspaceRoot2, ".agents", "tickets");
-  async function getIndex() {
-    const { tickets: tickets2, errors } = await scanTickets(ticketsDir);
-    return { index: new TicketLookup(tickets2), errors };
-  }
+  const getIndex = () => buildIndex(ticketsDir);
   return {
     list: async () => {
       try {
-        const { tickets: tickets2, errors } = await scanTickets(ticketsDir);
-        return { ok: true, tickets: tickets2, errors };
+        const result = await scanTickets(ticketsDir);
+        return { ok: true, ...result };
       } catch (error) {
-        return {
-          ok: false,
-          tickets: [],
-          errors: [extractMessage(error)],
-          error: extractMessage(error)
-        };
+        const msg = extractMessage(error);
+        return { ok: false, tickets: [], errors: [msg], error: msg };
       }
     },
-    get: async ({ id }) => {
-      try {
-        const { index } = await getIndex();
-        const ticket = index.get(id);
-        if (ticket === void 0) return { ok: false, error: `Ticket not found: ${id}` };
-        return { ok: true, ticket };
-      } catch (error) {
-        return { ok: false, error: extractMessage(error) };
-      }
-    },
-    getNext: async (options2) => {
-      try {
-        const status = normalizeTicketStatus(options2?.status ?? "OPEN");
-        const { index } = await getIndex();
-        const ticket = index.getNextByStatus(status);
-        return { ok: true, ticket };
-      } catch (error) {
-        return { ok: false, error: extractMessage(error) };
-      }
-    },
-    updateStatus: async ({ id, status }) => {
-      try {
-        const { index } = await getIndex();
-        const ticket = index.get(id);
-        if (ticket === void 0) return { ok: false, error: `Ticket not found: ${id}` };
-        const updated = await updateTicketStatus(ticket, status);
-        return { ok: true, ticket: updated };
-      } catch (error) {
-        return { ok: false, error: extractMessage(error) };
-      }
-    },
-    comment: async ({ id, text, section }) => {
-      try {
-        const { index } = await getIndex();
-        const ticket = index.get(id);
-        if (ticket === void 0) return { ok: false, error: `Ticket not found: ${id}` };
-        await addTicketComment(ticket, text, section);
-        return { ok: true };
-      } catch (error) {
-        return { ok: false, error: extractMessage(error) };
-      }
-    }
+    get: ({ id }) => wrapOp(async () => {
+      const { index } = await getIndex();
+      const ticket = index.get(id);
+      return ticket === void 0 ? notFound(id) : { ok: true, ticket };
+    }),
+    getNext: (options2) => wrapOp(async () => {
+      const status = normalizeTicketStatus(options2?.status ?? "OPEN");
+      const { index } = await getIndex();
+      return { ok: true, ticket: index.getNextByStatus(status) };
+    }),
+    updateStatus: ({ id, status }) => wrapOp(async () => {
+      const { index } = await getIndex();
+      const ticket = index.get(id);
+      if (ticket === void 0) return notFound(id);
+      return { ok: true, ticket: await updateTicketStatus(ticket, status) };
+    }),
+    comment: ({ id, text, section }) => wrapOp(async () => {
+      const { index } = await getIndex();
+      const ticket = index.get(id);
+      if (ticket === void 0) return notFound(id);
+      await addTicketComment(ticket, text, section);
+      return { ok: true };
+    })
   };
 }
 
@@ -9550,21 +9543,23 @@ function resolveExecSpec(runtimeEnv, command, args, workspaceRoot2) {
     cwd: workspaceRoot2
   };
 }
+function createLogContext(emit) {
+  const log = (level, message) => emit("log", { level, target: "workflow", message });
+  return {
+    debug: (message) => log("debug", message),
+    info: (message) => log("info", message),
+    warn: (message) => log("warn", message),
+    error: (message) => log("error", message)
+  };
+}
 function createContext(options2) {
   return {
     yolo: options2.yolo,
     ticket: options2.ticket ?? null,
     agent: {
-      run: (input) => options2.invokeCapability("session_run", {
-        yolo: options2.yolo,
-        ...input
-      }),
-      events: (sessionId) => options2.invokeCapability("session_events_subscribe", {
-        session_id: sessionId
-      }),
-      messages: (sessionId) => options2.invokeCapability("session_messages_list", {
-        session_id: sessionId
-      }),
+      run: (input) => options2.invokeCapability("session_run", { yolo: options2.yolo, ...input }),
+      events: (sessionId) => options2.invokeCapability("session_events_subscribe", { session_id: sessionId }),
+      messages: (sessionId) => options2.invokeCapability("session_messages_list", { session_id: sessionId }),
       cancel: (sessionId) => options2.invokeCapability("session_cancel", { session_id: sessionId })
     },
     exec: (command, args = []) => {
@@ -9576,28 +9571,7 @@ function createContext(options2) {
       );
       return runExec(spec.bin, spec.args, spec.cwd, options2.signal);
     },
-    log: {
-      debug: (message) => options2.emitEvent("log", {
-        level: "debug",
-        target: "workflow",
-        message
-      }),
-      info: (message) => options2.emitEvent("log", {
-        level: "info",
-        target: "workflow",
-        message
-      }),
-      warn: (message) => options2.emitEvent("log", {
-        level: "warn",
-        target: "workflow",
-        message
-      }),
-      error: (message) => options2.emitEvent("log", {
-        level: "error",
-        target: "workflow",
-        message
-      })
-    },
+    log: createLogContext(options2.emitEvent),
     sleep: (ms) => sleepWithSignal(ms, options2.signal),
     signal: options2.signal
   };
@@ -9645,6 +9619,10 @@ function pathToFileUrl(filePath) {
 }
 
 // runtime/src/runner.ts
+function errorMessage4(error) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 var Runner = class {
   activeRuns = /* @__PURE__ */ new Map();
   ipc = null;
@@ -9664,6 +9642,21 @@ var Runner = class {
     });
     this.ipc.onCommand("shutdown", () => this.shutdown());
   }
+  emit(name, payload) {
+    this.ipc?.emit(name, payload);
+  }
+  emitStep(runId, status) {
+    this.emit("step_finished", {
+      run_id: runId,
+      step_id: `${runId}:workflow`,
+      status,
+      duration_ms: 0,
+      finished_at: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+  emitRunFinished(runId, status) {
+    this.emit("run_finished", { run_id: runId, status, finished_at: (/* @__PURE__ */ new Date()).toISOString() });
+  }
   async executeRun(payload) {
     const controller = new AbortController();
     this.activeRuns.set(payload.run_id, { runId: payload.run_id, controller });
@@ -9680,86 +9673,63 @@ var Runner = class {
       started_at: (/* @__PURE__ */ new Date()).toISOString()
     });
     try {
-      const module2 = await loadWorkflowModule(payload.workflow_path);
-      this.emit("log", {
-        run_id: payload.run_id,
-        level: "info",
-        target: "runner",
-        message: `loaded workflow ${module2.meta.id}`,
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
-      const ctx = createContext({
-        workspaceRoot: process.cwd(),
-        runtimeEnv: payload.runtime_env,
-        yolo: payload.yolo,
-        signal: controller.signal,
-        ticket: payload.workflow_input.ticket,
-        emitEvent: (name, eventPayload) => {
-          this.emit(name, {
-            run_id: payload.run_id,
-            ...eventPayload,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString()
-          });
-        },
-        invokeCapability: (capability, params) => {
-          const ipc = this.ipc;
-          if (ipc === null) return Promise.reject(new Error("ipc not ready"));
-          return ipc.request(
-            "capability_request",
-            { run_id: payload.run_id, capability, params },
-            controller.signal
-          );
-        }
-      });
-      await module2.run(ctx);
-      this.emit("step_finished", {
-        run_id: payload.run_id,
-        step_id: `${payload.run_id}:workflow`,
-        status: "ok",
-        duration_ms: 0,
-        finished_at: (/* @__PURE__ */ new Date()).toISOString()
-      });
-      this.emit("run_finished", {
-        run_id: payload.run_id,
-        status: "SUCCEEDED",
-        finished_at: (/* @__PURE__ */ new Date()).toISOString()
-      });
+      await this.runWorkflow(payload, controller);
+      this.emitStep(payload.run_id, "ok");
+      this.emitRunFinished(payload.run_id, "SUCCEEDED");
     } catch (error) {
-      if (controller.signal.aborted) {
-        this.emit("step_finished", {
-          run_id: payload.run_id,
-          step_id: `${payload.run_id}:workflow`,
-          status: "cancelled",
-          duration_ms: 0,
-          finished_at: (/* @__PURE__ */ new Date()).toISOString()
-        });
-        this.emit("run_finished", {
-          run_id: payload.run_id,
-          status: "CANCELLED",
-          finished_at: (/* @__PURE__ */ new Date()).toISOString()
-        });
-      } else {
-        this.emit("step_finished", {
-          run_id: payload.run_id,
-          step_id: `${payload.run_id}:workflow`,
-          status: "failed",
-          duration_ms: 0,
-          finished_at: (/* @__PURE__ */ new Date()).toISOString()
-        });
-        this.emit("run_failed", {
-          run_id: payload.run_id,
-          error_code: "WORKFLOW_ERROR",
-          message: errorMessage4(error),
-          details: {},
-          failed_at: (/* @__PURE__ */ new Date()).toISOString()
-        });
-      }
+      this.emitRunError(payload.run_id, error, controller.signal.aborted);
     } finally {
       this.activeRuns.delete(payload.run_id);
     }
   }
-  emit(name, payload) {
-    this.ipc?.emit(name, payload);
+  async runWorkflow(payload, controller) {
+    const module2 = await loadWorkflowModule(payload.workflow_path);
+    this.emit("log", {
+      run_id: payload.run_id,
+      level: "info",
+      target: "runner",
+      message: `loaded workflow ${module2.meta.id}`,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    const ctx = createContext({
+      workspaceRoot: process.cwd(),
+      runtimeEnv: payload.runtime_env,
+      yolo: payload.yolo,
+      signal: controller.signal,
+      ticket: payload.workflow_input.ticket,
+      emitEvent: (name, eventPayload) => {
+        this.emit(name, {
+          run_id: payload.run_id,
+          ...eventPayload,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      },
+      invokeCapability: (capability, params) => {
+        const ipc = this.ipc;
+        if (ipc === null) return Promise.reject(new Error("ipc not ready"));
+        return ipc.request(
+          "capability_request",
+          { run_id: payload.run_id, capability, params },
+          controller.signal
+        );
+      }
+    });
+    await module2.run(ctx);
+  }
+  emitRunError(runId, error, isAborted) {
+    if (isAborted) {
+      this.emitStep(runId, "cancelled");
+      this.emitRunFinished(runId, "CANCELLED");
+    } else {
+      this.emitStep(runId, "failed");
+      this.emit("run_failed", {
+        run_id: runId,
+        error_code: "WORKFLOW_ERROR",
+        message: errorMessage4(error),
+        details: {},
+        failed_at: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
   }
   async waitForRunDrain() {
     while (this.activeRuns.size > 0) {
@@ -9774,10 +9744,6 @@ var Runner = class {
     process.exit(0);
   }
 };
-function errorMessage4(error) {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
 new Runner().start();
 /*! Bundled license information:
 
