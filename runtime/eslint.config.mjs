@@ -1,28 +1,35 @@
-import tsParser from "@typescript-eslint/parser";
-import tseslint from "@typescript-eslint/eslint-plugin";
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 import eslintComments from "eslint-plugin-eslint-comments";
+import importPlugin from "eslint-plugin-import";
+import unicorn from "eslint-plugin-unicorn";
 import globals from "globals";
 
-export default [
+export default tseslint.config(
   {
     ignores: ["node_modules/**", "dist/**", "coverage/**"],
   },
+
+  js.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.stylisticTypeChecked,
+
   {
     files: ["src/**/*.ts", "tests/**/*.ts"],
     languageOptions: {
-      parser: tsParser,
       ecmaVersion: "latest",
       sourceType: "module",
       parserOptions: {
-        project: "./tsconfig.json",
+        projectService: true,
       },
       globals: {
         ...globals.node,
       },
     },
     plugins: {
-      "@typescript-eslint": tseslint,
       "eslint-comments": eslintComments,
+      import: importPlugin,
+      unicorn,
     },
     rules: {
       "max-lines-per-function": [
@@ -34,36 +41,51 @@ export default [
           IIFEs: true,
         },
       ],
-      complexity: ["warn", { max: 10 }],
+      "complexity": ["warn", { max: 10 }],
       "max-depth": ["warn", { max: 3 }],
       "max-params": ["warn", { max: 4 }],
-      "eslint-comments/no-unlimited-disable": "warn",
+
+      "eslint-comments/no-unlimited-disable": "error",
       "eslint-comments/no-unused-disable": "warn",
-      "@typescript-eslint/consistent-type-imports": "warn",
+
+      "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-confusing-void-expression": [
         "warn",
         { ignoreArrowShorthand: true },
       ],
-      "@typescript-eslint/switch-exhaustiveness-check": "warn",
-      "@typescript-eslint/no-unnecessary-condition": "warn",
-      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+      "@typescript-eslint/no-unnecessary-condition": "error",
+      "@typescript-eslint/no-unnecessary-type-assertion": "error",
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         { argsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/prefer-optional-chain": "warn",
       "@typescript-eslint/prefer-nullish-coalescing": "warn",
       "@typescript-eslint/require-await": "warn",
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
       "@typescript-eslint/no-unsafe-argument": "warn",
       "@typescript-eslint/no-unsafe-return": "warn",
-      "@typescript-eslint/await-thenable": "warn",
-      "@typescript-eslint/restrict-plus-operands": "warn",
+      "@typescript-eslint/await-thenable": "error",
+      "@typescript-eslint/restrict-plus-operands": "error",
       "@typescript-eslint/strict-boolean-expressions": "warn",
       "@typescript-eslint/no-base-to-string": "warn",
       "@typescript-eslint/restrict-template-expressions": [
         "warn",
         { allowNumber: true },
       ],
+
+      "import/no-cycle": "error",
+      "import/no-duplicates": "error",
+      "import/order": [
+        "error",
+        { "newlines-between": "always" }
+      ],
+
+      "unicorn/consistent-function-scoping": "warn",
+      "unicorn/no-array-for-each": "warn",
+
       "@typescript-eslint/naming-convention": [
         "warn",
         {
@@ -120,13 +142,9 @@ export default [
       ],
     },
   },
+
   {
     files: ["tests/**/*.ts"],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-      },
-    },
     rules: {
       "max-lines-per-function": [
         "warn",
@@ -137,6 +155,7 @@ export default [
           IIFEs: true,
         },
       ],
+      "@typescript-eslint/no-floating-promises": "off",
     },
-  },
-];
+  }
+);
