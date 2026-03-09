@@ -102,7 +102,7 @@ On the Rust side, frames are newline-delimited JSON (one object per line, no emb
 Node requests a Rust capability:
 
 ```json
-{"kind":"request","payload":{"request_id":"req_1","capability":"agent_run","params":{}}}
+{"kind":"request","payload":{"request_id":"req_1","capability":"session_run","params":{}}}
 ```
 
 ### response / error (Rust → Node)

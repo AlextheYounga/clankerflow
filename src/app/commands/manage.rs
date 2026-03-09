@@ -30,7 +30,7 @@ fn build_manage_url(server_url: &str, project_root: &Path) -> String {
         use std::os::unix::ffi::OsStrExt;
         STANDARD_NO_PAD.encode(project_root.as_os_str().as_bytes())
     };
-	
+
     #[cfg(not(unix))]
     let encoded = STANDARD_NO_PAD.encode(project_root.to_string_lossy().as_bytes());
     format!("{}/{}/sessions", server_url.trim_end_matches('/'), encoded)

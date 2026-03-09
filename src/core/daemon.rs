@@ -300,13 +300,13 @@ mod tests {
     fn parse_capability_request_payload_reads_nested_fields() {
         let payload = json!({
             "request_id": "req_123",
-            "capability": "agent_run",
+            "capability": "session_run",
             "params": { "prompt": "hello" }
         });
 
         let (capability, params, request_id) = parse_capability_request_payload(&payload).unwrap();
 
-        assert_eq!(capability, "agent_run");
+        assert_eq!(capability, "session_run");
         assert_eq!(request_id, "req_123");
         assert_eq!(params["prompt"], "hello");
     }
@@ -314,7 +314,7 @@ mod tests {
     #[test]
     fn parse_capability_request_payload_requires_request_id() {
         let payload = json!({
-            "capability": "agent_run",
+            "capability": "session_run",
             "params": { "prompt": "hello" }
         });
 

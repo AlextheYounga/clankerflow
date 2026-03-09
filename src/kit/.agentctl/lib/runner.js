@@ -9407,17 +9407,17 @@ function createContext(options2) {
     yolo: options2.yolo,
     ticket: options2.ticket || null,
     agent: {
-      run: (input) => options2.invokeCapability("agent_run", {
+      run: (input) => options2.invokeCapability("session_run", {
         yolo: options2.yolo,
         ...input
       }),
-      events: (sessionId) => options2.invokeCapability("agent_events_subscribe", {
+      events: (sessionId) => options2.invokeCapability("session_events_subscribe", {
         session_id: sessionId
       }),
-      messages: (sessionId) => options2.invokeCapability("agent_messages_list", {
+      messages: (sessionId) => options2.invokeCapability("session_messages_list", {
         session_id: sessionId
       }),
-      cancel: (sessionId) => options2.invokeCapability("agent_cancel", { session_id: sessionId })
+      cancel: (sessionId) => options2.invokeCapability("session_cancel", { session_id: sessionId })
     },
     exec: (command, args = []) => {
       const spec = resolveExecSpec(

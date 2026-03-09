@@ -56,20 +56,20 @@ export function createContext(options: RunnerContextOptions) {
     ticket: options.ticket || null,
     agent: {
       run: (input: Record<string, unknown>) =>
-        options.invokeCapability("agent_run", {
+        options.invokeCapability("session_run", {
           yolo: options.yolo,
           ...input,
         }),
       events: (sessionId: string) =>
-        options.invokeCapability("agent_events_subscribe", {
+        options.invokeCapability("session_events_subscribe", {
           session_id: sessionId,
         }),
       messages: (sessionId: string) =>
-        options.invokeCapability("agent_messages_list", {
+        options.invokeCapability("session_messages_list", {
           session_id: sessionId,
         }),
       cancel: (sessionId: string) =>
-        options.invokeCapability("agent_cancel", { session_id: sessionId }),
+        options.invokeCapability("session_cancel", { session_id: sessionId }),
     },
     exec: (command: string, args: string[] = []) => {
       const spec = resolveExecSpec(

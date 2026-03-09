@@ -25,7 +25,7 @@ pub fn dispatch(request_id: &str, request: CapabilityRequest<'_>) -> IpcMessage 
         .unwrap_or(request.capability);
 
     let result = match domain {
-        "agent" => opencode::dispatch(request.capability, request.params),
+        "session" => opencode::dispatch(request.capability, request.params),
         _ => Err(anyhow!("unknown capability domain: {domain}")),
     };
 
@@ -63,7 +63,7 @@ mod tests {
     fn require_str_returns_value_when_present() {
         let params = serde_json::json!({ "prompt": "hello" });
 
-        let value = require_str(&params, "prompt", "agent_run").unwrap();
+        let value = require_str(&params, "prompt", "session_run").unwrap();
 
         assert_eq!(value, "hello");
     }
@@ -72,7 +72,7 @@ mod tests {
     fn require_str_errors_when_key_missing() {
         let params = serde_json::json!({});
 
-        let err = require_str(&params, "prompt", "agent_run").unwrap_err();
+        let err = require_str(&params, "prompt", "session_run").unwrap_err();
 
         assert!(err.to_string().contains("prompt"));
     }

@@ -15,11 +15,11 @@
 - Ability to create deterministic AI workflows using plain Javascript.
 - Typescript runtime that is compiled to Javascript `.agents/lib` folder, containing the runtime assets and helpers for creating deterministic workflows.
 - The `dist/` payload is embedded in the Rust binary and emitted during `agentctl init` into `.agents/lib`.
-- Clap-powered CLI and a Ratatui-based TUI for managing workflow execution.
+- Clap-powered CLI. Workflow monitoring is handled by the OpenCode web UI (`agentctl manage` opens it in the browser).
 - Workflow JavaScript is executed by a managed Node runtime process started by Rust.
 - Rust and Node communicate over stdio using structured JSON messages (IPC).
 - Transport model is intentionally Tauri-like: TypeScript workflow APIs are thin wrappers that invoke Rust capabilities over IPC.
-- Rust owns process lifecycle (start/stop/cancel/timeouts), state tracking, and TUI updates.
+- Rust owns process lifecycle (start/stop/cancel/timeouts) and state tracking.
 - Rust is the source of truth for persistent state (SQLite with SeaORM).
 - Tickets are stored as Markdown files in `.agents/tickets/` to remain human-readable and editable. Rust handlers perform filesystem operations for ticket APIs. These are not crucial for workflow operation, just a helper system.
 - TypeScript owns helpers and workflow composition, but not Opencode API handling, this goes through Rust in order for more fine-grained control.
@@ -29,9 +29,9 @@
 
 ### Container & Runtime
 - Container model is per-project (persistent), not per workflow run.
-- Container named `workflow-{codebase_id}` using codebase_id from settings. Codebase ID is a generated hex code created on `init` and stored in settings.json.
+- Container named `workflow-{codebase_id}` using codebase_id from settings. Codebase ID is the base64-encoded (no padding) absolute project path, written to settings.json on `init`. This matches the project identifier used by the OpenCode web UI.
 - Containers are not spawned by default, but set on a per workflow basis in the `meta` block in the workflow. The point of contained workflows is so that they can be run safely on dangerous mode (`--yolo` or `--dangerously-bypass-approvals-and-sandbox` in codex-speak. In opencode it's --yolo.)
-- Under both host and container workflow runtimes, they should run as a background daemon; do not steal my terminal from me with a blocking process. We will be able to monitor them from the TUI under `manage`.
+- Under both host and container workflow runtimes, they should run as a background daemon; do not steal my terminal from me with a blocking process. Monitoring is done via the OpenCode web UI, opened by `agentctl manage`.
 
 ## OpenCode Lifecycle Integration
 - OpenCode REST API is a primary integration point for agent session lifecycle.
@@ -41,7 +41,7 @@
 
 ## Workflow Runtime Strategy
 
-- Keep Rust as the core runtime for CLI/TUI, daemon orchestration, SQLite, and container management.
+- Keep Rust as the core runtime for CLI, daemon orchestration, SQLite, and container management.
 - Keep workflows in TypeScript for authoring speed and maintainability.
 - Use Node for workflow execution to preserve Node APIs (`fs`, `child_process`, etc.).
 - Do not execute workflows through shell strings; spawn Node directly from Rust process APIs.
@@ -53,11 +53,10 @@
 
 - User runs `agentctl init` in a new or existing repository.
 - A `.agents` folder is created in the workspace. If `.agents` already exists, `init` exits with an error (no overwrite).
-- The `init` command also creates a boilerplate `.opencode` folder for project-local OpenCode settings.
+- The `init` command also places a boilerplate `.opencode/opencode.json` for project-local OpenCode settings.
 - User runs `agentctl work duos` to execute `.agents/workflows/duos.ts`. 
-- User runs `agentctl manage` to view and manage workflow runs in a TUI (inspired by `docs/references/agentcontainment.md`).
-- TUI displays running and previous workflow runs, changed files, and related OpenCode session IDs.
-- User can stop active workflows.
+- User runs `agentctl manage` to open the OpenCode web UI for this project in the browser. The web UI shows running and previous sessions.
+- User can stop active workflows from the web UI.
 
 ## References
 
@@ -81,7 +80,7 @@ docs/references/
 
 ## Kit Folder
 
-After `agentctl init`, the framework scaffold is written into the repository as `.agents` (plus `.opencode`).
+After `agentctl init`, the framework scaffold is written into the repository as `.agents`, plus `.opencode/opencode.json` for project-local OpenCode configuration.
 
 ```
 .agents
@@ -113,7 +112,7 @@ Usage: `agentctl <COMMAND>`
 Commands:
 - `init` Initialize agentctl in current directory
 - `work` Start a workflow run
-- `manage` TUI for managing workflow runs
+- `manage` Open the OpenCode web UI for this project in the browser
 - `make` Generate project artifacts
 - `help` Print this message or the help of the given subcommand(s)
 
@@ -134,7 +133,6 @@ Usage: `agentctl make <COMMAND>`
 Commands:
 - `ticket` Create a new ticket
 - `worktree` Create a git worktree, ticket under .agents/.worktrees on host
-- `validate` Validate workflows under `.agents/workflows`
 - `help` Print this message or the help of the given subcommand(s)
 
 ## Must Haves
@@ -151,10 +149,9 @@ Commands:
 - Workflows can invoke agents through OpenCode SDK sessions.
 - `.agents/settings.json` handles global settings (for example git username/email for automated git operations).
 - Per-project drop-in architecture.
-- Manage TUI (opentui package) for attaching, killing, and monitoring sessions.
+- `agentctl manage` opens the OpenCode web UI for the current project in the browser.
 - Managed Rust <-> Node IPC protocol for workflow execution events and control messages.
 
 ## Future Exploratory Goals
 
-- Browser-based studio for managing and visualizing workflows.
 - Long-term agent memory using SQLite.
