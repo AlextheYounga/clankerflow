@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 
-
 interface IpcMessage {
   v: "v1";
   id: string;
@@ -100,7 +99,9 @@ async function runRunnerSequence(
 
   // Drain stderr to prevent blocking; we don't assert on it in these tests.
   child.stderr!.setEncoding("utf8");
-  child.stderr!.on("data", (_chunk: string) => { /* drain */ });
+  child.stderr!.on("data", (_chunk: string) => {
+    /* drain */
+  });
 
   for (const message of commands) {
     child.send(message);

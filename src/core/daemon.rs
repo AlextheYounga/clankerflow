@@ -19,7 +19,7 @@ use crate::core::capabilities::{CapabilityRequest, dispatch as dispatch_capabili
 use crate::core::ipc::Message;
 use crate::core::runtime::resolve_node_bin;
 use crate::db::connection::connect;
-use crate::db::entities::workflow_run::{WorkflowEnv, RunStatus};
+use crate::db::entities::workflow_run::{RunStatus, WorkflowEnv};
 
 use process::{detach_process, wait_for_child};
 use protocol::{
@@ -185,9 +185,7 @@ fn spawn_runner(project_root: &Path) -> Result<NodeRunner> {
 
     // SAFETY: parent_ipc_fd is a valid open file descriptor produced by
     // make_socketpair; we consume it via into_raw_fd so it is not double-closed.
-    let ipc = TokioFile::from_std(unsafe {
-        File::from_raw_fd(parent_ipc_fd.into_raw_fd())
-    });
+    let ipc = TokioFile::from_std(unsafe { File::from_raw_fd(parent_ipc_fd.into_raw_fd()) });
 
     Ok(NodeRunner { child, ipc })
 }

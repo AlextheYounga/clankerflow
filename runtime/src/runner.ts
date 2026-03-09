@@ -1,10 +1,7 @@
 import { IpcTransport, IpcRouter } from "./ipc.ts";
 import { createContext } from "./context.ts";
 import { loadWorkflowModule } from "./loader.ts";
-import type {
-  StartRunPayload,
-  CancelRunPayload,
-} from "./protocol.ts";
+import type { StartRunPayload, CancelRunPayload } from "./protocol.ts";
 
 interface ActiveRun {
   runId: number;
@@ -56,7 +53,11 @@ class Runner {
   }
 
   private emitRunFinished(runId: number, status: string): void {
-    this.emit("run_finished", { run_id: runId, status, finished_at: new Date().toISOString() });
+    this.emit("run_finished", {
+      run_id: runId,
+      status,
+      finished_at: new Date().toISOString(),
+    });
   }
 
   private async executeRun(payload: StartRunPayload): Promise<void> {
@@ -127,7 +128,11 @@ class Runner {
     await module.run(ctx);
   }
 
-  private emitRunError(runId: number, error: unknown, isAborted: boolean): void {
+  private emitRunError(
+    runId: number,
+    error: unknown,
+    isAborted: boolean,
+  ): void {
     if (isAborted) {
       this.emitStep(runId, "cancelled");
       this.emitRunFinished(runId, "CANCELLED");

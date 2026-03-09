@@ -39,7 +39,9 @@ function notFound(id: string) {
   return { ok: false as const, error: `Ticket not found: ${id}` };
 }
 
-async function wrapOp<T>(fn: () => Promise<T>): Promise<T | { ok: false; error: string }> {
+async function wrapOp<T>(
+  fn: () => Promise<T>,
+): Promise<T | { ok: false; error: string }> {
   try {
     return await fn();
   } catch (error: unknown) {
@@ -65,7 +67,9 @@ export function createTicketContext(workspaceRoot: string): TicketContext {
       wrapOp(async () => {
         const { index } = await getIndex();
         const ticket = index.get(id);
-        return ticket === undefined ? notFound(id) : { ok: true as const, ticket };
+        return ticket === undefined
+          ? notFound(id)
+          : { ok: true as const, ticket };
       }),
     getNext: (options) =>
       wrapOp(async () => {
@@ -78,7 +82,10 @@ export function createTicketContext(workspaceRoot: string): TicketContext {
         const { index } = await getIndex();
         const ticket = index.get(id);
         if (ticket === undefined) return notFound(id);
-        return { ok: true as const, ticket: await updateTicketStatus(ticket, status) };
+        return {
+          ok: true as const,
+          ticket: await updateTicketStatus(ticket, status),
+        };
       }),
     comment: ({ id, text, section }) =>
       wrapOp(async () => {

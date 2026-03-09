@@ -4386,7 +4386,9 @@ function createFsContext(workspaceRoot2) {
     const absolutePath = path.resolve(workspaceRoot2, relativePath);
     const normalizedRoot = path.resolve(workspaceRoot2);
     if (!absolutePath.startsWith(normalizedRoot)) {
-      throw new Error(`Path "${relativePath}" escapes workspace root "${normalizedRoot}"`);
+      throw new Error(
+        `Path "${relativePath}" escapes workspace root "${normalizedRoot}"`
+      );
     }
     return absolutePath;
   };
@@ -9117,9 +9119,12 @@ async function parseTicketFile(filePath) {
   return parseTicketContent(content, filePath);
 }
 function renderTicketDocument(frontmatter, body) {
-  return import_gray_matter.default.stringify(body.trim().length > 0 ? `
+  return import_gray_matter.default.stringify(
+    body.trim().length > 0 ? `
 ${body.trim()}
-` : "", frontmatter);
+` : "",
+    frontmatter
+  );
 }
 
 // runtime/src/helpers/tickets/ops.ts
@@ -9283,7 +9288,10 @@ function createTicketContext(workspaceRoot2) {
       const { index } = await getIndex();
       const ticket = index.get(id);
       if (ticket === void 0) return notFound(id);
-      return { ok: true, ticket: await updateTicketStatus(ticket, status) };
+      return {
+        ok: true,
+        ticket: await updateTicketStatus(ticket, status)
+      };
     }),
     comment: ({ id, text, section }) => wrapOp(async () => {
       const { index } = await getIndex();

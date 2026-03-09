@@ -10,7 +10,10 @@ export const fs = createFsContext(workspaceRoot);
 export const git = createGitContext(workspaceRoot);
 export const tickets = createTicketContext(workspaceRoot);
 
-export function sleepWithSignal(ms: number, signal: AbortSignal): Promise<void> {
+export function sleepWithSignal(
+  ms: number,
+  signal: AbortSignal,
+): Promise<void> {
   if (signal.aborted) {
     return Promise.reject(new Error("operation cancelled"));
   }

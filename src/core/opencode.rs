@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use anyhow::{Result, anyhow};
+use serde_json::{Value, json};
 
 use crate::core::capabilities::require_str;
 
@@ -74,9 +74,11 @@ mod tests {
         let params = serde_json::json!({ "session_id": "sess_abc" });
         let result = dispatch("session_events_subscribe", &params).unwrap();
         assert_eq!(result["session_id"], "sess_abc");
-        assert!(result["subscription_id"]
-            .as_str()
-            .unwrap()
-            .starts_with("sub_"));
+        assert!(
+            result["subscription_id"]
+                .as_str()
+                .unwrap()
+                .starts_with("sub_")
+        );
     }
 }

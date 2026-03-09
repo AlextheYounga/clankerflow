@@ -18,10 +18,7 @@ test("loadWorkflowModule accepts valid metadata and async default", async () => 
 });
 
 test("loadWorkflowModule rejects invalid metadata", async () => {
-  const workflowPath = path.join(
-    dirname,
-    "fixtures/workflow-invalid-meta.ts",
-  );
+  const workflowPath = path.join(dirname, "fixtures/workflow-invalid-meta.ts");
 
   await assert.rejects(
     loadWorkflowModule(workflowPath),

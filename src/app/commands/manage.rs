@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD_NO_PAD;
 
 use crate::core::project::require_project_root;
 use crate::core::settings::Settings;

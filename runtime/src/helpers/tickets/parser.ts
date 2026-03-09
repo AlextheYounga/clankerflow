@@ -2,7 +2,11 @@ import fs from "node:fs/promises";
 
 import matter from "gray-matter";
 
-import { normalizeTicketStatus, resolveTicketId, type TicketStatus } from "./schema.ts";
+import {
+  normalizeTicketStatus,
+  resolveTicketId,
+  type TicketStatus,
+} from "./schema.ts";
 
 export interface Ticket {
   ticketId: string;
@@ -54,5 +58,8 @@ export function renderTicketDocument(
   frontmatter: Record<string, unknown>,
   body: string,
 ): string {
-  return matter.stringify(body.trim().length > 0 ? `\n${body.trim()}\n` : "", frontmatter);
+  return matter.stringify(
+    body.trim().length > 0 ? `\n${body.trim()}\n` : "",
+    frontmatter,
+  );
 }

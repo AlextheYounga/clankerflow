@@ -84,26 +84,19 @@ export function createGitContext(workspaceRoot: string): GitContext {
     commit: (message: string) =>
       wrap(git, `git commit -m "${message}"`, (g) => g.commit(message)),
     push: (remote?: string, branch?: string) =>
-      wrap(
-        git,
-        `git push ${remote ?? ""} ${branch ?? ""}`,
-        (g) => g.push(remote, branch),
+      wrap(git, `git push ${remote ?? ""} ${branch ?? ""}`, (g) =>
+        g.push(remote, branch),
       ),
     pull: (remote?: string, branch?: string) =>
-      wrap(
-        git,
-        `git pull ${remote ?? ""} ${branch ?? ""}`,
-        (g) => g.pull(remote, branch),
+      wrap(git, `git pull ${remote ?? ""} ${branch ?? ""}`, (g) =>
+        g.pull(remote, branch),
       ),
-    log: (options?: string[]) =>
-      wrap(git, "git log", (g) => g.log(options)),
+    log: (options?: string[]) => wrap(git, "git log", (g) => g.log(options)),
     checkout: (branch: string) =>
       wrap(git, `git checkout ${branch}`, (g) => g.checkout(branch)),
     checkoutBranch: (branch: string, startPoint: string) =>
-      wrap(
-        git,
-        `git checkout -b ${branch} ${startPoint}`,
-        (g) => g.checkoutBranch(branch, startPoint),
+      wrap(git, `git checkout -b ${branch} ${startPoint}`, (g) =>
+        g.checkoutBranch(branch, startPoint),
       ),
   };
 }

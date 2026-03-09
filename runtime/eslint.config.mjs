@@ -41,7 +41,7 @@ export default tseslint.config(
           IIFEs: true,
         },
       ],
-      "complexity": ["warn", { max: 10 }],
+      complexity: ["warn", { max: 10 }],
       "max-depth": ["warn", { max: 3 }],
       "max-params": ["warn", { max: 4 }],
 
@@ -78,10 +78,7 @@ export default tseslint.config(
 
       "import/no-cycle": "error",
       "import/no-duplicates": "error",
-      "import/order": [
-        "error",
-        { "newlines-between": "always" }
-      ],
+      "import/order": ["error", { "newlines-between": "always" }],
 
       "unicorn/consistent-function-scoping": "warn",
       "unicorn/no-array-for-each": "warn",
@@ -171,5 +168,5 @@ export default tseslint.config(
       // Boolean naming prefix rules are noisy in test assertions; disable for tests.
       "@typescript-eslint/naming-convention": "off",
     },
-  }
+  },
 );

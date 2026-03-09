@@ -16,7 +16,9 @@ export function createFsContext(workspaceRoot: string): FsContext {
     const absolutePath = path.resolve(workspaceRoot, relativePath);
     const normalizedRoot = path.resolve(workspaceRoot);
     if (!absolutePath.startsWith(normalizedRoot)) {
-      throw new Error(`Path "${relativePath}" escapes workspace root "${normalizedRoot}"`);
+      throw new Error(
+        `Path "${relativePath}" escapes workspace root "${normalizedRoot}"`,
+      );
     }
     return absolutePath;
   };

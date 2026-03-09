@@ -56,8 +56,8 @@ function createLogContext(emit: EventEmitter) {
     emit("log", { level, target: "workflow", message });
   return {
     debug: (message: string) => log("debug", message),
-    info:  (message: string) => log("info",  message),
-    warn:  (message: string) => log("warn",  message),
+    info: (message: string) => log("info", message),
+    warn: (message: string) => log("warn", message),
     error: (message: string) => log("error", message),
   };
 }
@@ -68,11 +68,18 @@ export function createContext(options: RunnerContextOptions) {
     ticket: options.ticket ?? null,
     agent: {
       run: (input: Record<string, unknown>) =>
-        options.invokeCapability("session_run", { yolo: options.yolo, ...input }),
+        options.invokeCapability("session_run", {
+          yolo: options.yolo,
+          ...input,
+        }),
       events: (sessionId: string) =>
-        options.invokeCapability("session_events_subscribe", { session_id: sessionId }),
+        options.invokeCapability("session_events_subscribe", {
+          session_id: sessionId,
+        }),
       messages: (sessionId: string) =>
-        options.invokeCapability("session_messages_list", { session_id: sessionId }),
+        options.invokeCapability("session_messages_list", {
+          session_id: sessionId,
+        }),
       cancel: (sessionId: string) =>
         options.invokeCapability("session_cancel", { session_id: sessionId }),
     },

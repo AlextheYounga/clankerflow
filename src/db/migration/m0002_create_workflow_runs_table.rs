@@ -23,10 +23,18 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(WorkflowRuns::WorkflowId).big_integer().null())
+                    .col(
+                        ColumnDef::new(WorkflowRuns::WorkflowId)
+                            .big_integer()
+                            .null(),
+                    )
                     .col(ColumnDef::new(WorkflowRuns::Pid).big_integer().null())
                     .col(ColumnDef::new(WorkflowRuns::Env).string_len(32).not_null())
-                    .col(ColumnDef::new(WorkflowRuns::Status).string_len(32).not_null())
+                    .col(
+                        ColumnDef::new(WorkflowRuns::Status)
+                            .string_len(32)
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(WorkflowRuns::CreatedAt)
                             .timestamp_with_time_zone()

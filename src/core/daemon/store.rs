@@ -9,7 +9,7 @@ use sea_orm::{
 use crate::db::entities::event::ActiveModel as EventActive;
 use crate::db::entities::workflow::ActiveModel as WorkflowActive;
 use crate::db::entities::workflow_run::{
-    ActiveModel as WorkflowRunActive, Entity as WorkflowRun, WorkflowEnv, RunStatus,
+    ActiveModel as WorkflowRunActive, Entity as WorkflowRun, RunStatus, WorkflowEnv,
 };
 
 pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -> Result<i64> {
@@ -38,7 +38,11 @@ pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -
     Ok(inserted.id)
 }
 
-pub async fn create_run(db: &DatabaseConnection, workflow_id: i64, env: WorkflowEnv) -> Result<i64> {
+pub async fn create_run(
+    db: &DatabaseConnection,
+    workflow_id: i64,
+    env: WorkflowEnv,
+) -> Result<i64> {
     let now = chrono::Utc::now();
 
     let inserted = WorkflowRunActive {

@@ -4,7 +4,9 @@ import {
   type IpcMessageKind,
 } from "./protocol.ts";
 
-type CommandHandler = (payload: Record<string, unknown>) => void | Promise<void>;
+type CommandHandler = (
+  payload: Record<string, unknown>,
+) => void | Promise<void>;
 interface PendingRequest {
   resolve: (result: Record<string, unknown>) => void;
   reject: (error: Error) => void;
@@ -117,7 +119,6 @@ export class IpcRouter {
       }
       return;
     }
-
   }
 
   send(

@@ -1,7 +1,7 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 /// # Errors
 /// Returns an error if the executable path cannot be resolved or the bundled
