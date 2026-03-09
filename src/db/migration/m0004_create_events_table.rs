@@ -23,8 +23,9 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Events::ParentId).big_integer().null())
-                    .col(ColumnDef::new(Events::Type).string().not_null())
+                    .col(ColumnDef::new(Events::EntityId).big_integer().not_null())
+                    .col(ColumnDef::new(Events::EntityType).string().not_null())
+                    .col(ColumnDef::new(Events::EventType).string().not_null())
                     .col(ColumnDef::new(Events::Data).json().null())
                     .col(
                         ColumnDef::new(Events::CreatedAt)
@@ -47,8 +48,9 @@ impl MigrationTrait for Migration {
 enum Events {
     Table,
     Id,
-    ParentId,
-    Type,
+    EntityId,
+    EntityType,
+    EventType,
     Data,
     CreatedAt,
 }

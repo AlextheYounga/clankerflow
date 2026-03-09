@@ -5,7 +5,6 @@ mod store;
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow};
 use serde_json::json;
@@ -36,12 +35,11 @@ pub async fn launch_workflow(
     workflow_path: &Path,
     env: &str,
     yolo: bool,
-) -> Result<String> {
+) -> Result<i64> {
     let db = connect().await?;
-    let run_id = new_run_id();
     let workflow_env = parse_runtime_env(env)?;
     let workflow_id = upsert_workflow(&db, workflow_name, workflow_path).await?;
-    create_run(&db, &run_id, workflow_id, workflow_env).await?;
+    let run_id = create_run(&db, workflow_id, workflow_env).await?;
 
     let executable = std::env::current_exe()
         .map_err(|error| anyhow!("failed to resolve executable path: {error}"))?;
@@ -50,7 +48,7 @@ pub async fn launch_workflow(
     worker
         .arg("_run")
         .arg("--run-id")
-        .arg(&run_id)
+        .arg(run_id.to_string())
         .arg("--workflow-path")
         .arg(workflow_path)
         .arg("--env")
@@ -75,7 +73,7 @@ pub async fn launch_workflow(
 
 pub async fn pump_workflow(
     project_root: &Path,
-    run_id: &str,
+    run_id: i64,
     workflow_path: &Path,
     env: &str,
     yolo: bool,
@@ -100,7 +98,7 @@ pub async fn pump_workflow(
     let mut lines = BufReader::new(ipc_read).lines();
     loop {
         if is_stop_requested(&db, run_id).await? {
-            send_cancel(&mut ipc_write, run_id).await;
+            send_cancel(&mut ipc_write).await;
             set_status(&db, run_id, WorkflowRunStatus::Cancelled).await?;
         }
 
@@ -199,7 +197,7 @@ fn make_socketpair() -> Result<(OwnedFd, OwnedFd)> {
 async fn handle_runner_line(
     db: &sea_orm::DatabaseConnection,
     ipc_write: &mut (impl AsyncWrite + Unpin),
-    run_id: &str,
+    run_id: i64,
     line: &str,
 ) -> Result<LoopControl> {
     let trimmed_line = line.trim();
@@ -245,7 +243,7 @@ async fn handle_runner_line(
 
 async fn update_run_status_for_event(
     db: &sea_orm::DatabaseConnection,
-    run_id: &str,
+    run_id: i64,
     message: &IpcMessage,
 ) -> Result<LoopControl> {
     match message.name.as_str() {
@@ -263,14 +261,6 @@ async fn update_run_status_for_event(
         }
         _ => Ok(LoopControl::Continue),
     }
-}
-
-fn new_run_id() -> String {
-    let ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or(0);
-    format!("run_{ms}")
 }
 
 fn parse_runtime_env(env: &str) -> Result<crate::db::entities::workflow_run::WorkflowEnv> {

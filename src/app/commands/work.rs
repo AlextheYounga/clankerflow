@@ -15,7 +15,7 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
     }
 
     let run_id = launch_workflow(&project_root, &name, &workflow_path, env.as_str(), yolo).await?;
-    println!("workflow started: {run_id}");
+    println!("workflow started (run id: {run_id})");
     Ok(())
 }
 

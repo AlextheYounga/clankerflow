@@ -59,14 +59,14 @@ mod tests {
         let msg = IpcMessage::command(
             "cmd_1",
             "start_run",
-            serde_json::json!({ "run_id": "run_01" }),
+            serde_json::json!({ "workflow_path": "/tmp/duos.js" }),
         );
 
         assert_eq!(msg.v, "v1");
         assert_eq!(msg.id, "cmd_1");
         assert_eq!(msg.kind, "command");
         assert_eq!(msg.name, "start_run");
-        assert_eq!(msg.payload["run_id"], "run_01");
+        assert_eq!(msg.payload["workflow_path"], "/tmp/duos.js");
     }
 
     #[test]
@@ -92,7 +92,7 @@ mod tests {
         let original = IpcMessage::command(
             "cmd_42",
             "cancel_run",
-            serde_json::json!({ "run_id": "run_99", "reason": "user_requested" }),
+            serde_json::json!({ "reason": "user_requested" }),
         );
 
         let line = serde_json::to_string(&original).expect("should serialize");
@@ -101,7 +101,7 @@ mod tests {
         let parsed: IpcMessage = serde_json::from_str(&line).expect("should deserialize");
         assert_eq!(parsed.v, "v1");
         assert_eq!(parsed.id, "cmd_42");
-        assert_eq!(parsed.payload["run_id"], "run_99");
+        assert_eq!(parsed.payload["reason"], "user_requested");
     }
 
     #[test]

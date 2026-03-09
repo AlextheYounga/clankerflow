@@ -39,7 +39,7 @@ pub enum Commands {
     #[command(hide = true, name = "_run")]
     Run {
         #[arg(long)]
-        run_id: String,
+        run_id: i64,
         #[arg(long)]
         workflow_path: PathBuf,
         #[arg(long, value_enum, default_value_t = RuntimeEnv::Host)]
@@ -66,7 +66,7 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             env,
             project_root,
             yolo,
-        } => pump_workflow(&project_root, &run_id, &workflow_path, env.as_str(), yolo).await,
+        } => pump_workflow(&project_root, run_id, &workflow_path, env.as_str(), yolo).await,
     }
 }
 
@@ -124,7 +124,7 @@ mod tests {
             "agentctl",
             "_run",
             "--run-id",
-            "run_123",
+            "42",
             "--workflow-path",
             "/tmp/duos.js",
             "--env",
@@ -138,7 +138,7 @@ mod tests {
             Commands::Run {
                 run_id, env, yolo, ..
             } => {
-                assert_eq!(run_id, "run_123");
+                assert_eq!(run_id, 42);
                 assert_eq!(env, RuntimeEnv::Host);
                 assert!(!yolo);
             }

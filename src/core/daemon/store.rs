@@ -8,19 +8,18 @@ use sea_orm::{
 use crate::db::entities::event::ActiveModel as EventActive;
 use crate::db::entities::workflow::ActiveModel as WorkflowActive;
 use crate::db::entities::workflow_run::{
-    ActiveModel as WorkflowRunActiveModel, Column as WorkflowRunColumn, Entity as WorkflowRun,
-    Model as WorkflowRunModel, WorkflowEnv, WorkflowRunStatus,
+    ActiveModel as WorkflowRunActive, Entity as WorkflowRun, WorkflowEnv, WorkflowRunStatus,
 };
 
 pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -> Result<i64> {
     use crate::db::entities::workflow::{Column as WorkflowColumn, Entity as Workflow};
 
-    if let Some(existing_workflow) = Workflow::find()
+    if let Some(existing) = Workflow::find()
         .filter(WorkflowColumn::Name.eq(name))
         .one(db)
         .await?
     {
-        return Ok(existing_workflow.id);
+        return Ok(existing.id);
     }
 
     let now = chrono::Utc::now();
@@ -38,16 +37,10 @@ pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -
     Ok(inserted.id)
 }
 
-pub async fn create_run(
-    db: &DatabaseConnection,
-    run_id: &str,
-    workflow_id: i64,
-    env: WorkflowEnv,
-) -> Result<()> {
+pub async fn create_run(db: &DatabaseConnection, workflow_id: i64, env: WorkflowEnv) -> Result<i64> {
     let now = chrono::Utc::now();
 
-    WorkflowRunActiveModel {
-        run_id: ActiveValue::Set(Some(run_id.to_string())),
+    let inserted = WorkflowRunActive {
         workflow_id: ActiveValue::Set(Some(workflow_id)),
         pid: ActiveValue::Set(Some(std::process::id() as i64)),
         env: ActiveValue::Set(env),
@@ -59,15 +52,10 @@ pub async fn create_run(
     .insert(db)
     .await?;
 
-    Ok(())
+    Ok(inserted.id)
 }
 
-pub async fn set_status(
-    db: &DatabaseConnection,
-    run_id: &str,
-    status: WorkflowRunStatus,
-) -> Result<()> {
-    let run = find_run(db, run_id).await?;
+pub async fn set_status(db: &DatabaseConnection, id: i64, status: WorkflowRunStatus) -> Result<()> {
     let now = chrono::Utc::now();
     let completed_at = matches!(
         status,
@@ -75,8 +63,8 @@ pub async fn set_status(
     )
     .then_some(now);
 
-    WorkflowRunActiveModel {
-        id: ActiveValue::Unchanged(run.id),
+    WorkflowRunActive {
+        id: ActiveValue::Unchanged(id),
         status: ActiveValue::Set(status),
         updated_at: ActiveValue::Set(now),
         completed_at: ActiveValue::Set(completed_at),
@@ -88,21 +76,23 @@ pub async fn set_status(
     Ok(())
 }
 
-pub async fn is_stop_requested(db: &DatabaseConnection, run_id: &str) -> Result<bool> {
-    let run = find_run(db, run_id).await?;
+pub async fn is_stop_requested(db: &DatabaseConnection, id: i64) -> Result<bool> {
+    let run = WorkflowRun::find_by_id(id)
+        .one(db)
+        .await?
+        .ok_or_else(|| anyhow!("workflow run not found: {id}"))?;
     Ok(run.status == WorkflowRunStatus::Cancelled)
 }
 
 pub async fn append_run_event(
     db: &DatabaseConnection,
-    run_id: &str,
+    id: i64,
     event_type: &str,
     data: serde_json::Value,
 ) -> Result<()> {
-    let run = find_run(db, run_id).await?;
-
     EventActive {
-        parent_id: ActiveValue::Set(Some(run.id)),
+        entity_id: ActiveValue::Set(id),
+        entity_type: ActiveValue::Set("workflow_run".to_string()),
         event_type: ActiveValue::Set(event_type.to_string()),
         data: ActiveValue::Set(Some(data)),
         created_at: ActiveValue::Set(chrono::Utc::now()),
@@ -112,12 +102,4 @@ pub async fn append_run_event(
     .await?;
 
     Ok(())
-}
-
-async fn find_run(db: &DatabaseConnection, run_id: &str) -> Result<WorkflowRunModel> {
-    WorkflowRun::find()
-        .filter(WorkflowRunColumn::RunId.eq(run_id))
-        .one(db)
-        .await?
-        .ok_or_else(|| anyhow!("workflow run not found: {run_id}"))
 }
