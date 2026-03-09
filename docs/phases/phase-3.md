@@ -174,4 +174,3 @@ cancellation is now in-process via SIGINT rather than DB polling.
 - Background/daemon execution (see `docs/future/daemon.md`).
 - Real OpenCode client integration (capabilities are stubs until Phase 5).
 - Container lifecycle management.
-- `make validate` workflow linting.

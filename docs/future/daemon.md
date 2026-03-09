@@ -44,9 +44,7 @@ Two key differences from synchronous:
 
 1. **Two-process model.** The CLI re-execs itself as a hidden `_run` command
    that runs detached. The original process exits immediately.
-2. **DB-polled cancellation.** Since there's no terminal to Ctrl+C, a separate
-   process (e.g. `agentctl stop <run_id>` or the web UI) writes a stop request
-   to the DB, and the worker polls for it during the IPC loop.
+
 
 ## What Needs to Be Built
 

@@ -126,6 +126,4 @@ All tests must be offline — no real OpenCode server.
 ## Out of Scope
 
 - Container lifecycle management.
-- `make validate` workflow linting.
-- `agentctl stop` command.
 - Full SSE event relay design (deferred to a follow-up phase).
