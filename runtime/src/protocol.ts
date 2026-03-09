@@ -16,7 +16,7 @@ export type IpcMessage = {
 };
 
 export type StartRunPayload = {
-  run_id: string;
+  run_id: number;
   workflow_path: string;
   runtime_env: RuntimeEnv;
   yolo: boolean;
@@ -24,13 +24,13 @@ export type StartRunPayload = {
 };
 
 export type CancelRunPayload = {
-  run_id: string;
+  run_id: number;
   reason: string;
 };
 
 export type CapabilityRequestPayload = {
   request_id: string;
-  run_id: string;
+  run_id: number;
   capability: string;
   params: Record<string, unknown>;
 };

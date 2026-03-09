@@ -7,12 +7,12 @@ import type {
 } from "./protocol.ts";
 
 type ActiveRun = {
-  runId: string;
+  runId: number;
   controller: AbortController;
 };
 
 class Runner {
-  private readonly activeRuns = new Map<string, ActiveRun>();
+  private readonly activeRuns = new Map<number, ActiveRun>();
   private ipc: IpcRouter | null = null;
 
   start(): void {

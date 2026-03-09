@@ -37,11 +37,11 @@ pub async fn write_message(
     Ok(())
 }
 
-pub async fn send_cancel(ipc_write: &mut (impl AsyncWrite + Unpin)) {
+pub async fn send_cancel(ipc_write: &mut (impl AsyncWrite + Unpin), run_id: i64) {
     let message = IpcMessage::command(
         "cmd_cancel",
         "cancel_run",
-        serde_json::json!({ "reason": "user_requested" }),
+        serde_json::json!({ "run_id": run_id, "reason": "user_requested" }),
     );
     let _ = write_message(ipc_write, &message).await;
 }

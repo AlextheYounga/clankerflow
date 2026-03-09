@@ -98,7 +98,7 @@ pub async fn pump_workflow(
     let mut lines = BufReader::new(ipc_read).lines();
     loop {
         if is_stop_requested(&db, run_id).await? {
-            send_cancel(&mut ipc_write).await;
+            send_cancel(&mut ipc_write, run_id).await;
             set_status(&db, run_id, WorkflowRunStatus::Cancelled).await?;
         }
 
