@@ -5,15 +5,26 @@ const TICKET_TEMPLATE: &str = include_str!("../kit/context/templates/ticket-temp
 
 /// Create a new ticket in `<project_root>/.agents/tickets/` and return
 /// the filename (e.g. `T-001.md`).
+///
+/// # Errors
+/// Returns an error if the tickets directory cannot be created, the ticket
+/// file already exists, or writing the file fails.
 pub fn create_ticket(project_root: &Path) -> anyhow::Result<String> {
     create_ticket_with_options(project_root, None, None)
 }
 
 /// Create a ticket with an optional title override.
+///
+/// # Errors
+/// Returns an error if the tickets directory cannot be created, the ticket
+/// file already exists, or writing the file fails.
 pub fn create_ticket_with_title(project_root: &Path, title: &str) -> anyhow::Result<String> {
     create_ticket_with_options(project_root, Some(title), None)
 }
 
+/// # Errors
+/// Returns an error if the tickets directory cannot be created, the ticket
+/// file already exists, or writing the file fails.
 pub fn create_ticket_with_branch(project_root: &Path, branch: &str) -> anyhow::Result<String> {
     create_ticket_with_options(project_root, None, Some(branch))
 }
@@ -23,12 +34,12 @@ fn create_ticket_with_options(
     title: Option<&str>,
     branch: Option<&str>,
 ) -> anyhow::Result<String> {
-    let tickets_dir = tickets_dir(project_root);
+    let tickets_dir = dir(project_root);
     fs::create_dir_all(&tickets_dir)?;
 
     let number = next_ticket_number(&tickets_dir)?;
-    let ticket_id = format!("T-{:03}", number);
-    let filename = format!("{}.md", ticket_id);
+    let ticket_id = format!("T-{number:03}");
+    let filename = format!("{ticket_id}.md");
     let ticket_path = tickets_dir.join(&filename);
 
     if ticket_path.exists() {
@@ -41,7 +52,8 @@ fn create_ticket_with_options(
     Ok(filename)
 }
 
-pub fn tickets_dir(project_root: &Path) -> PathBuf {
+#[must_use]
+pub fn dir(project_root: &Path) -> PathBuf {
     project_root.join(".agents").join("tickets")
 }
 
@@ -63,6 +75,7 @@ fn next_ticket_number(tickets_dir: &Path) -> anyhow::Result<u32> {
     Ok(max + 1)
 }
 
+#[must_use]
 pub fn parse_ticket_number(filename: &str) -> Option<u32> {
     filename
         .strip_prefix("T-")
@@ -72,24 +85,20 @@ pub fn parse_ticket_number(filename: &str) -> Option<u32> {
 
 fn render_template(ticket_id: &str, title: Option<&str>, branch: Option<&str>) -> String {
     let number = ticket_id.strip_prefix("T-").unwrap_or(ticket_id);
-    let mut out = TICKET_TEMPLATE.replacen("id: '001'", &format!("id: '{}'", number), 1);
+    let mut out = TICKET_TEMPLATE.replacen("id: '001'", &format!("id: '{number}'"), 1);
 
     if let Some(t) = title {
         let t = t.lines().next().unwrap_or("").trim();
         if !t.is_empty() {
             let escaped = t.replace('\\', "\\\\").replace('"', "\\\"");
-            out = out.replacen("title: Short Title", &format!("title: \"{}\"", escaped), 1);
+            out = out.replacen("title: Short Title", &format!("title: \"{escaped}\""), 1);
         }
     }
 
     if let Some(b) = branch {
         let b = b.trim();
         if !b.is_empty() {
-            out = out.replacen(
-                "branch: feat/your-branch-name",
-                &format!("branch: {}", b),
-                1,
-            );
+            out = out.replacen("branch: feat/your-branch-name", &format!("branch: {b}"), 1);
         }
     }
 

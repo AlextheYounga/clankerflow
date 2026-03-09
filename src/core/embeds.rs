@@ -8,6 +8,10 @@ use rust_embed::Embed;
 struct Kit;
 
 /// Write every embedded kit file into `<project_root>/.agents/`.
+///
+/// # Errors
+/// Returns an error if a file cannot be created or written to disk, or if an
+/// expected embedded asset is missing.
 pub fn copy_kit(project_root: &Path, is_reinit: bool) -> anyhow::Result<()> {
     copy_kit_into(project_root, is_reinit)
 }
@@ -23,13 +27,15 @@ fn copy_kit_into(project_root: &Path, _is_reinit: bool) -> anyhow::Result<()> {
             fs::create_dir_all(parent)?;
         }
 
-        let file = Kit::get(rel).expect("embedded file must exist");
+        let file =
+            Kit::get(rel).ok_or_else(|| anyhow::anyhow!("embedded kit file missing: {rel}"))?;
         fs::write(&dest, file.data)?;
     }
 
     // Always write `.agents/.gitignore` from the embedded `gitignore.example`.
     let gitignore_dest = agents_dir.join(".gitignore");
-    let file = Kit::get("gitignore.example").expect("gitignore.example must be embedded");
+    let file = Kit::get("gitignore.example")
+        .ok_or_else(|| anyhow::anyhow!("embedded asset 'gitignore.example' is missing"))?;
     if let Some(parent) = gitignore_dest.parent() {
         fs::create_dir_all(parent)?;
     }

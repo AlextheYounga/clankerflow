@@ -1,13 +1,17 @@
-use anyhow::{Result, anyhow};
-use serde_json::{Value, json};
+use anyhow::{anyhow, Result};
+use serde_json::{json, Value};
 
 use crate::core::capabilities::require_str;
 
 /// Session capability dispatcher.
 ///
-/// OpenCode client integration is not yet implemented (Phase 5).
+/// `OpenCode` client integration is not yet implemented (Phase 5).
 /// These stubs return structured errors so the workflow gets a clear failure
 /// rather than a silent hang.
+///
+/// # Errors
+/// Always returns an error for unimplemented capabilities, or if required
+/// parameters are missing.
 pub fn dispatch(capability: &str, params: &Value) -> Result<Value> {
     match capability {
         "session_run" => run(params),
@@ -70,11 +74,9 @@ mod tests {
         let params = serde_json::json!({ "session_id": "sess_abc" });
         let result = dispatch("session_events_subscribe", &params).unwrap();
         assert_eq!(result["session_id"], "sess_abc");
-        assert!(
-            result["subscription_id"]
-                .as_str()
-                .unwrap()
-                .starts_with("sub_")
-        );
+        assert!(result["subscription_id"]
+            .as_str()
+            .unwrap()
+            .starts_with("sub_"));
     }
 }

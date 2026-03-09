@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 
 use crate::app::commands;
 use crate::app::types::{MakeCommands, RuntimeEnv};
-use crate::core::daemon::pump_workflow;
+use crate::core::daemon::{PumpArgs, pump_workflow};
 
 #[derive(Debug, Parser)]
 #[command(name = "agentctl", about = "AI workflow orchestration CLI")]
@@ -51,14 +51,16 @@ pub enum Commands {
     },
 }
 
+/// # Errors
+/// Returns an error if the dispatched subcommand fails.
 pub async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Init => commands::init::run().await,
         Commands::Work { name, env, yolo } => commands::work::run(name, env, yolo).await,
-        Commands::Manage => commands::manage::run().await,
+        Commands::Manage => commands::manage::run(),
         Commands::Make { command } => match command {
-            MakeCommands::Ticket => commands::make::ticket().await,
-            MakeCommands::Worktree { branch } => commands::make::worktree(branch).await,
+            MakeCommands::Ticket => commands::make::ticket(),
+            MakeCommands::Worktree { branch } => commands::make::worktree(&branch),
         },
         Commands::Run {
             run_id,
@@ -66,7 +68,16 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             env,
             project_root,
             yolo,
-        } => pump_workflow(&project_root, run_id, &workflow_path, env.as_str(), yolo).await,
+        } => {
+            let args = PumpArgs {
+                project_root: &project_root,
+                run_id,
+                workflow_path: &workflow_path,
+                env: env.as_str(),
+                yolo,
+            };
+            pump_workflow(&args).await
+        }
     }
 }
 

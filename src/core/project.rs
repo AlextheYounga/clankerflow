@@ -1,5 +1,6 @@
 use std::env;
 use std::path::{Path, PathBuf};
+use std::result;
 
 use thiserror::Error;
 
@@ -9,7 +10,7 @@ pub enum AgentCtlError {
     ProjectNotInitialized(PathBuf),
 }
 
-pub type Result<T> = std::result::Result<T, AgentCtlError>;
+pub type Result<T> = result::Result<T, AgentCtlError>;
 
 fn walk_for_project_root(start: &Path) -> Option<PathBuf> {
     let mut current = Some(start.to_path_buf());
@@ -17,11 +18,12 @@ fn walk_for_project_root(start: &Path) -> Option<PathBuf> {
         if path.join(".agents").is_dir() {
             return Some(path);
         }
-        current = path.parent().map(|p| p.to_path_buf());
+        current = path.parent().map(Path::to_path_buf);
     }
     None
 }
 
+#[must_use]
 pub fn get_project_root() -> Option<PathBuf> {
     let cwd = env::current_dir().ok()?;
     walk_for_project_root(&cwd)
@@ -32,6 +34,9 @@ fn require_project_root_from(start: &Path) -> Result<PathBuf> {
         .ok_or_else(|| AgentCtlError::ProjectNotInitialized(start.to_path_buf()))
 }
 
+/// # Errors
+/// Returns [`AgentCtlError::ProjectNotInitialized`] if no `.agents` directory
+/// is found in the current directory or any of its ancestors.
 pub fn require_project_root() -> Result<PathBuf> {
     let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("<unknown>"));
     require_project_root_from(&cwd)

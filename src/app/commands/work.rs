@@ -1,10 +1,13 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::app::types::RuntimeEnv;
-use crate::core::daemon::launch_workflow;
+use crate::core::daemon::{WorkflowArgs, launch_workflow};
 use crate::core::project::require_project_root;
 use crate::core::settings::Settings;
 
+/// # Errors
+/// Returns an error if the project root is not found, settings fail to load,
+/// the workflow path cannot be resolved, or the workflow fails to launch.
 pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let workflow_path = resolve_workflow(&project_root, &name)?;
@@ -14,25 +17,31 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
         anyhow::bail!("codebase_id is missing from settings; run `agentctl init` first");
     }
 
-    let run_id = launch_workflow(&project_root, &name, &workflow_path, env.as_str(), yolo).await?;
+    let args = WorkflowArgs {
+        project_root: &project_root,
+        workflow_name: &name,
+        workflow_path: &workflow_path,
+        env: env.as_str(),
+        yolo,
+    };
+    let run_id = launch_workflow(&args).await?;
     println!("workflow started (run id: {run_id})");
     Ok(())
 }
 
-fn resolve_workflow(project_root: &PathBuf, name: &str) -> anyhow::Result<PathBuf> {
+fn resolve_workflow(project_root: &Path, name: &str) -> anyhow::Result<PathBuf> {
     validate_workflow_name(name)?;
     let workflows_dir = project_root.join(".agents").join("workflows");
 
     for ext in ["js", "ts"] {
-        let candidate = workflows_dir.join(format!("{}.{}", name, ext));
+        let candidate = workflows_dir.join(format!("{name}.{ext}"));
         if candidate.exists() {
             return Ok(candidate);
         }
     }
 
     anyhow::bail!(
-        "workflow '{}' not found under {}",
-        name,
+        "workflow '{name}' not found under {}",
         workflows_dir.display()
     )
 }
@@ -43,7 +52,7 @@ fn validate_workflow_name(name: &str) -> anyhow::Result<()> {
     }
 
     if name.contains('/') || name.contains('\\') || name.contains("..") {
-        anyhow::bail!("workflow name contains unsafe path characters: '{}'", name);
+        anyhow::bail!("workflow name contains unsafe path characters: '{name}'");
     }
 
     Ok(())
@@ -65,7 +74,7 @@ mod tests {
     fn write_workflow(project_root: &Path, name: &str, ext: &str) {
         let path = project_root
             .join(".agents/workflows")
-            .join(format!("{}.{}", name, ext));
+            .join(format!("{name}.{ext}"));
         fs::write(path, "export default async () => {};").unwrap();
     }
 
@@ -74,7 +83,7 @@ mod tests {
         let dir = setup();
         write_workflow(dir.path(), "duos", "js");
 
-        let resolved = resolve_workflow(&dir.path().to_path_buf(), "duos").unwrap();
+        let resolved = resolve_workflow(dir.path(), "duos").unwrap();
 
         assert_eq!(resolved, dir.path().join(".agents/workflows/duos.js"));
     }
@@ -84,7 +93,7 @@ mod tests {
         let dir = setup();
         write_workflow(dir.path(), "duos", "ts");
 
-        let resolved = resolve_workflow(&dir.path().to_path_buf(), "duos").unwrap();
+        let resolved = resolve_workflow(dir.path(), "duos").unwrap();
 
         assert_eq!(resolved, dir.path().join(".agents/workflows/duos.ts"));
     }
@@ -95,7 +104,7 @@ mod tests {
         write_workflow(dir.path(), "duos", "js");
         write_workflow(dir.path(), "duos", "ts");
 
-        let resolved = resolve_workflow(&dir.path().to_path_buf(), "duos").unwrap();
+        let resolved = resolve_workflow(dir.path(), "duos").unwrap();
 
         assert_eq!(resolved, dir.path().join(".agents/workflows/duos.js"));
     }
@@ -104,7 +113,7 @@ mod tests {
     fn resolve_error_includes_workflows_directory() {
         let dir = setup();
 
-        let err = resolve_workflow(&dir.path().to_path_buf(), "missing").unwrap_err();
+        let err = resolve_workflow(dir.path(), "missing").unwrap_err();
 
         let msg = err.to_string();
         assert!(msg.contains(".agents/workflows"));
@@ -114,9 +123,9 @@ mod tests {
     fn rejects_unsafe_workflow_names() {
         let dir = setup();
 
-        let slash = resolve_workflow(&dir.path().to_path_buf(), "../escape");
-        let backslash = resolve_workflow(&dir.path().to_path_buf(), "..\\escape");
-        let nested = resolve_workflow(&dir.path().to_path_buf(), "nested/name");
+        let slash = resolve_workflow(dir.path(), "../escape");
+        let backslash = resolve_workflow(dir.path(), "..\\escape");
+        let nested = resolve_workflow(dir.path(), "nested/name");
 
         assert!(slash.is_err());
         assert!(backslash.is_err());

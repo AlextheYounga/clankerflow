@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcMessage {
+pub struct Message {
     pub v: String,
     pub id: String,
     pub kind: String,
@@ -10,7 +10,7 @@ pub struct IpcMessage {
     pub payload: Value,
 }
 
-impl IpcMessage {
+impl Message {
     pub fn command(id: impl Into<String>, name: impl Into<String>, payload: Value) -> Self {
         Self {
             v: "v1".to_string(),
@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn command_constructor_sets_correct_fields() {
-        let msg = IpcMessage::command(
+        let msg = Message::command(
             "cmd_1",
             "start_run",
             serde_json::json!({ "workflow_path": "/tmp/duos.js" }),
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn response_constructor_echoes_request_id() {
-        let msg = IpcMessage::response("req_abc", "capability_request", serde_json::json!({}));
+        let msg = Message::response("req_abc", "capability_request", serde_json::json!({}));
 
         assert_eq!(msg.id, "req_abc");
         assert_eq!(msg.kind, "response");
@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn error_response_carries_error_message() {
-        let msg = IpcMessage::error_response("req_xyz", "capability_request", "something failed");
+        let msg = Message::error_response("req_xyz", "capability_request", "something failed");
 
         assert_eq!(msg.id, "req_xyz");
         assert_eq!(msg.kind, "error");
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn round_trips_through_json_line_without_newlines() {
-        let original = IpcMessage::command(
+        let original = Message::command(
             "cmd_42",
             "cancel_run",
             serde_json::json!({ "reason": "user_requested" }),
@@ -98,7 +98,7 @@ mod tests {
         let line = serde_json::to_string(&original).expect("should serialize");
         assert!(!line.contains('\n'), "IPC line must not contain newlines");
 
-        let parsed: IpcMessage = serde_json::from_str(&line).expect("should deserialize");
+        let parsed: Message = serde_json::from_str(&line).expect("should deserialize");
         assert_eq!(parsed.v, "v1");
         assert_eq!(parsed.id, "cmd_42");
         assert_eq!(parsed.payload["reason"], "user_requested");
@@ -115,7 +115,7 @@ mod tests {
             "future_field": "ignored"
         }"#;
 
-        let msg: IpcMessage = serde_json::from_str(json).expect("unknown fields should be ignored");
+        let msg: Message = serde_json::from_str(json).expect("unknown fields should be ignored");
         assert_eq!(msg.name, "run_started");
     }
 }

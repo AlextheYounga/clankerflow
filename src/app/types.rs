@@ -7,6 +7,7 @@ pub enum RuntimeEnv {
 }
 
 impl RuntimeEnv {
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Host => "host",

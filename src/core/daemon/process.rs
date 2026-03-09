@@ -1,11 +1,14 @@
+use std::process::Command;
 use std::time::Duration;
 
 use anyhow::{Result, anyhow};
+use tokio::process::Child;
+use tokio::time::{Instant, sleep};
 
 const CANCEL_GRACE_PERIOD: Duration = Duration::from_secs(5);
 
-pub async fn wait_for_child(mut child: tokio::process::Child) -> Result<()> {
-    let deadline = tokio::time::Instant::now() + CANCEL_GRACE_PERIOD;
+pub async fn wait_for_child(mut child: Child) -> Result<()> {
+    let deadline = Instant::now() + CANCEL_GRACE_PERIOD;
 
     loop {
         match child.try_wait() {
@@ -20,19 +23,21 @@ pub async fn wait_for_child(mut child: tokio::process::Child) -> Result<()> {
             Err(error) => return Err(anyhow!("error waiting for Node runner: {error}")),
         }
 
-        if tokio::time::Instant::now() >= deadline {
+        if Instant::now() >= deadline {
             let _ = child.kill().await;
             return Ok(());
         }
 
-        tokio::time::sleep(Duration::from_millis(50)).await;
+        sleep(Duration::from_millis(50)).await;
     }
 }
 
 #[cfg(target_family = "unix")]
-pub fn detach_process(worker: &mut std::process::Command) {
+pub fn detach_process(worker: &mut Command) {
     use std::os::unix::process::CommandExt;
 
+    // SAFETY: setsid() is async-signal-safe and has no preconditions beyond
+    // running in a forked child process, which pre_exec guarantees.
     unsafe {
         worker.pre_exec(|| {
             libc::setsid();
@@ -42,7 +47,7 @@ pub fn detach_process(worker: &mut std::process::Command) {
 }
 
 #[cfg(not(target_family = "unix"))]
-pub fn detach_process(worker: &mut std::process::Command) {
+pub fn detach_process(worker: &mut Command) {
     use std::os::windows::process::CommandExt;
 
     worker.creation_flags(0x00000008);

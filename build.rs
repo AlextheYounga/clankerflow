@@ -1,4 +1,5 @@
 use std::env;
+use std::error::Error;
 use std::process::Command;
 
 const NODE_EXTERNALS: &[&str] = &[
@@ -13,25 +14,27 @@ const NODE_EXTERNALS: &[&str] = &[
     "node:*",
 ];
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=runtime/src");
     println!("cargo:rerun-if-changed=runtime/package.json");
     println!("cargo:rerun-if-changed=runtime/package-lock.json");
 
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
     bundle_ts(
         &manifest_dir,
         "runtime/src/runner.ts",
         "src/kit/.agentctl/lib/runner.js",
-    );
+    )?;
     bundle_ts(
         &manifest_dir,
         "runtime/src/helpers.ts",
         "src/kit/.agentctl/lib/helpers.js",
-    );
+    )?;
+
+    Ok(())
 }
 
-fn bundle_ts(manifest_dir: &str, entry: &str, output: &str) {
+fn bundle_ts(manifest_dir: &str, entry: &str, output: &str) -> Result<(), Box<dyn Error>> {
     let entry_path = format!("{manifest_dir}/{entry}");
     let output_path = format!("{manifest_dir}/{output}");
     let runtime_prefix = format!("{manifest_dir}/runtime");
@@ -53,10 +56,15 @@ fn bundle_ts(manifest_dir: &str, entry: &str, output: &str) {
         args.push(format!("--external:{module}"));
     }
 
-    let status = Command::new("npx")
-        .args(&args)
-        .status()
-        .expect("failed to run esbuild; ensure `npm install` has been run in runtime/");
+    let status = Command::new("npx").args(&args).status().map_err(|e| {
+        format!(
+            "failed to run esbuild for {entry}: {e}; ensure `npm install` has been run in runtime/"
+        )
+    })?;
 
-    assert!(status.success(), "esbuild failed for {entry}");
+    if !status.success() {
+        return Err(format!("esbuild failed for {entry}").into());
+    }
+
+    Ok(())
 }

@@ -2,7 +2,7 @@ use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::N(32))")]
-pub enum WorkflowRunStatus {
+pub enum RunStatus {
     #[sea_orm(string_value = "PENDING")]
     Pending,
     #[sea_orm(string_value = "RUNNING")]
@@ -32,7 +32,7 @@ pub struct Model {
     pub workflow_id: Option<i64>,
     pub pid: Option<i64>,
     pub env: WorkflowEnv,
-    pub status: WorkflowRunStatus,
+    pub status: RunStatus,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
     pub completed_at: Option<DateTimeUtc>,

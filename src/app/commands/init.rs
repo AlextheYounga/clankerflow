@@ -1,3 +1,5 @@
+use std::env;
+use std::io::{self, Write};
 use std::path::Path;
 
 use base64::Engine;
@@ -5,19 +7,18 @@ use base64::engine::general_purpose::STANDARD_NO_PAD;
 
 use crate::core::embeds::copy_kit;
 use crate::core::settings::Settings;
-use crate::db::db::connect;
-use std::io::{self, Write};
+use crate::db::connection::connect;
 
+/// # Errors
+/// Returns an error if any step of initialization fails.
 pub async fn run() -> anyhow::Result<()> {
-    let project_root = std::env::current_dir()?;
+    let project_root = env::current_dir()?;
     let agents_dir = project_root.join(".agents");
     let is_reinit = agents_dir.exists();
 
-    if is_reinit {
-        if !confirm_overwrite()? {
-            println!("Initialization cancelled.");
-            return Ok(());
-        }
+    if is_reinit && !confirm_overwrite()? {
+        println!("Initialization cancelled.");
+        return Ok(());
     }
 
     // Copy kit files into .agents/
@@ -27,7 +28,7 @@ pub async fn run() -> anyhow::Result<()> {
     stamp_codebase_id(&project_root)?;
 
     // Initialize the database (creates + migrates)
-    connect().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    connect().await.map_err(|e| anyhow::anyhow!("{e}"))?;
 
     if is_reinit {
         println!("Kit refreshed successfully.");

@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process;
 
 use anyhow::{Result, anyhow};
 use sea_orm::{
@@ -8,7 +9,7 @@ use sea_orm::{
 use crate::db::entities::event::ActiveModel as EventActive;
 use crate::db::entities::workflow::ActiveModel as WorkflowActive;
 use crate::db::entities::workflow_run::{
-    ActiveModel as WorkflowRunActive, Entity as WorkflowRun, WorkflowEnv, WorkflowRunStatus,
+    ActiveModel as WorkflowRunActive, Entity as WorkflowRun, WorkflowEnv, RunStatus,
 };
 
 pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -> Result<i64> {
@@ -42,9 +43,9 @@ pub async fn create_run(db: &DatabaseConnection, workflow_id: i64, env: Workflow
 
     let inserted = WorkflowRunActive {
         workflow_id: ActiveValue::Set(Some(workflow_id)),
-        pid: ActiveValue::Set(Some(std::process::id() as i64)),
+        pid: ActiveValue::Set(Some(i64::from(process::id()))),
         env: ActiveValue::Set(env),
-        status: ActiveValue::Set(WorkflowRunStatus::Pending),
+        status: ActiveValue::Set(RunStatus::Pending),
         created_at: ActiveValue::Set(now),
         updated_at: ActiveValue::Set(now),
         ..Default::default()
@@ -55,11 +56,11 @@ pub async fn create_run(db: &DatabaseConnection, workflow_id: i64, env: Workflow
     Ok(inserted.id)
 }
 
-pub async fn set_status(db: &DatabaseConnection, id: i64, status: WorkflowRunStatus) -> Result<()> {
+pub async fn set_status(db: &DatabaseConnection, id: i64, status: RunStatus) -> Result<()> {
     let now = chrono::Utc::now();
     let completed_at = matches!(
         status,
-        WorkflowRunStatus::Completed | WorkflowRunStatus::Failed | WorkflowRunStatus::Cancelled
+        RunStatus::Completed | RunStatus::Failed | RunStatus::Cancelled
     )
     .then_some(now);
 
@@ -81,7 +82,7 @@ pub async fn is_stop_requested(db: &DatabaseConnection, id: i64) -> Result<bool>
         .one(db)
         .await?
         .ok_or_else(|| anyhow!("workflow run not found: {id}"))?;
-    Ok(run.status == WorkflowRunStatus::Cancelled)
+    Ok(run.status == RunStatus::Cancelled)
 }
 
 pub async fn append_run_event(

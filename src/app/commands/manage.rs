@@ -1,14 +1,17 @@
 use std::path::Path;
 
-use base64::Engine;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
+use base64::Engine;
 
 use crate::core::project::require_project_root;
 use crate::core::settings::Settings;
 
 const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
 
-pub async fn run() -> anyhow::Result<()> {
+/// # Errors
+/// Returns an error if the project root is not found, settings fail to load,
+/// or the browser fails to open.
+pub fn run() -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let settings = Settings::load(&project_root)?;
 
@@ -19,7 +22,7 @@ pub async fn run() -> anyhow::Result<()> {
         .unwrap_or(DEFAULT_OPENCODE_URL);
 
     let url = build_manage_url(server_url, &project_root);
-    println!("Opening {}", url);
+    println!("Opening {url}");
     open::that(&url)?;
     Ok(())
 }
@@ -48,7 +51,7 @@ mod tests {
         assert!(url.ends_with("/sessions"));
 
         let encoded = STANDARD_NO_PAD.encode(b"/home/alex/project");
-        assert_eq!(url, format!("http://127.0.0.1:4096/{}/sessions", encoded));
+        assert_eq!(url, format!("http://127.0.0.1:4096/{encoded}/sessions"));
     }
 
     #[test]

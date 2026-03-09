@@ -1,15 +1,17 @@
 use crate::core::opencode;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use serde_json::Value;
 
-use crate::core::ipc::IpcMessage;
+use crate::core::ipc::Message;
 
 pub struct CapabilityRequest<'a> {
     pub capability: &'a str,
     pub params: &'a Value,
 }
 
+/// # Errors
+/// Returns an error if the required parameter is absent or not a string.
 pub fn require_str<'a>(params: &'a Value, key: &str, capability: &str) -> Result<&'a str> {
     params
         .get(key)
@@ -17,7 +19,8 @@ pub fn require_str<'a>(params: &'a Value, key: &str, capability: &str) -> Result
         .ok_or_else(|| anyhow!("capability '{capability}' missing required param: {key}"))
 }
 
-pub fn dispatch(request_id: &str, request: CapabilityRequest<'_>) -> IpcMessage {
+#[must_use]
+pub fn dispatch(request_id: &str, request: &CapabilityRequest<'_>) -> Message {
     let domain = request
         .capability
         .split('_')
@@ -30,10 +33,8 @@ pub fn dispatch(request_id: &str, request: CapabilityRequest<'_>) -> IpcMessage 
     };
 
     match result {
-        Ok(payload) => IpcMessage::response(request_id, "capability_response", payload),
-        Err(error) => {
-            IpcMessage::error_response(request_id, "capability_response", error.to_string())
-        }
+        Ok(payload) => Message::response(request_id, "capability_response", payload),
+        Err(error) => Message::error_response(request_id, "capability_response", error.to_string()),
     }
 }
 
@@ -48,15 +49,13 @@ mod tests {
             params: &serde_json::json!({}),
         };
 
-        let response = dispatch("req_1", request);
+        let response = dispatch("req_1", &request);
 
         assert_eq!(response.kind, "error");
-        assert!(
-            response.payload["error"]
-                .as_str()
-                .unwrap_or("")
-                .contains("unknown capability domain")
-        );
+        assert!(response.payload["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("unknown capability domain"));
     }
 
     #[test]

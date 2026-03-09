@@ -24,13 +24,13 @@ ureq = "3.2.0"
 tempfile = "3"
 
 [lints.clippy]
-# broad groups
-correctness = "deny"
-suspicious = "deny"
-complexity = "warn"
-style = "warn"
-perf = "warn"
-pedantic = "warn"
+# broad groups (lower priority so individual lint overrides take effect)
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
 
 # readability / naming
 similar_names = "warn"
@@ -56,8 +56,9 @@ panic = "deny"
 todo = "deny"
 unimplemented = "deny"
 dbg_macro = "deny"
-print_stdout = "deny"
-print_stderr = "deny"
+# This is a CLI binary: stdout/stderr output is the intended UX.
+print_stdout = "allow"
+print_stderr = "allow"
 
 # docs / contracts
 missing_panics_doc = "deny"

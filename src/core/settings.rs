@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -5,42 +6,47 @@ use serde::{Deserialize, Serialize};
 const SETTINGS_PATH: &str = ".agents/settings.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GitSettings {
+pub struct GitConfig {
     pub user_name: String,
     pub user_email: String,
     pub default_branch: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkflowSettings {
+pub struct WorkflowConfig {
     pub default: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OpencodeSettings {
+pub struct OpencodeConfig {
     pub server_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub codebase_id: String,
-    pub git: GitSettings,
-    pub workflows: WorkflowSettings,
-    pub opencode: Option<OpencodeSettings>,
+    pub git: GitConfig,
+    pub workflows: WorkflowConfig,
+    pub opencode: Option<OpencodeConfig>,
 }
 
 impl Settings {
+    /// # Errors
+    /// Returns an error if the settings file cannot be read or parsed.
     pub fn load(project_root: &Path) -> anyhow::Result<Self> {
         let path = project_root.join(SETTINGS_PATH);
-        let raw = std::fs::read_to_string(&path)?;
+        let raw = fs::read_to_string(&path)?;
         let settings = serde_json::from_str(&raw)?;
         Ok(settings)
     }
 
+    /// # Errors
+    /// Returns an error if the settings cannot be serialized or the file
+    /// cannot be written.
     pub fn save(&self, project_root: &Path) -> anyhow::Result<()> {
         let path = project_root.join(SETTINGS_PATH);
         let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, json)?;
+        fs::write(path, json)?;
         Ok(())
     }
 }
@@ -54,12 +60,12 @@ mod tests {
     fn sample_settings() -> Settings {
         Settings {
             codebase_id: "abc123".to_string(),
-            git: GitSettings {
+            git: GitConfig {
                 user_name: "Alex".to_string(),
                 user_email: "alex@example.com".to_string(),
                 default_branch: "main".to_string(),
             },
-            workflows: WorkflowSettings {
+            workflows: WorkflowConfig {
                 default: "duos".to_string(),
             },
             opencode: None,
@@ -163,7 +169,7 @@ mod tests {
     fn save_round_trips_opencode_settings() {
         let dir = setup();
         let mut settings = sample_settings();
-        settings.opencode = Some(OpencodeSettings {
+        settings.opencode = Some(OpencodeConfig {
             server_url: Some("http://localhost:9000".to_string()),
         });
 
