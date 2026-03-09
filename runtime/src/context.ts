@@ -1,4 +1,5 @@
 import path from "node:path";
+
 import type { RuntimeEnv } from "./protocol.ts";
 import { runExec, sleepWithSignal } from "./helpers.ts";
 
@@ -8,15 +9,15 @@ type CapabilityInvoker = (
   payload: Record<string, unknown>,
 ) => Promise<Record<string, unknown>>;
 
-export type RunnerContextOptions = {
+export interface RunnerContextOptions {
   workspaceRoot: string;
   runtimeEnv: RuntimeEnv;
   yolo: boolean;
   signal: AbortSignal;
   emitEvent: EventEmitter;
   invokeCapability: CapabilityInvoker;
-  ticket?: any;
-};
+  ticket?: unknown;
+}
 
 export function resolveExecSpec(
   runtimeEnv: RuntimeEnv,
@@ -53,7 +54,7 @@ export function resolveExecSpec(
 export function createContext(options: RunnerContextOptions) {
   return {
     yolo: options.yolo,
-    ticket: options.ticket || null,
+    ticket: options.ticket ?? null,
     agent: {
       run: (input: Record<string, unknown>) =>
         options.invokeCapability("session_run", {

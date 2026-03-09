@@ -6,10 +6,10 @@ import type {
   CancelRunPayload,
 } from "./protocol.ts";
 
-type ActiveRun = {
+interface ActiveRun {
   runId: number;
   controller: AbortController;
-};
+}
 
 class Runner {
   private readonly activeRuns = new Map<number, ActiveRun>();
@@ -23,7 +23,7 @@ class Runner {
     this.ipc = new IpcRouter(transport);
     this.ipc.start();
 
-    this.ipc.onCommand("start_run", async (payload) => {
+    this.ipc.onCommand("start_run", (payload) => {
       const startPayload = payload as unknown as StartRunPayload;
       void this.executeRun(startPayload);
     });
@@ -33,7 +33,7 @@ class Runner {
       this.activeRuns.get(cancelPayload.run_id)?.controller.abort();
     });
 
-    this.ipc.onCommand("shutdown", async () => this.shutdown());
+    this.ipc.onCommand("shutdown", () => this.shutdown());
 
   }
 
@@ -70,7 +70,7 @@ class Runner {
         runtimeEnv: payload.runtime_env,
         yolo: payload.yolo,
         signal: controller.signal,
-        ticket: payload.workflow_input?.ticket,
+        ticket: payload.workflow_input.ticket,
         emitEvent: (name, eventPayload) => {
           this.emit(name, {
             run_id: payload.run_id,
@@ -78,12 +78,15 @@ class Runner {
             timestamp: new Date().toISOString(),
           });
         },
-        invokeCapability: (capability, params) =>
-          this.ipc!.request(
+        invokeCapability: (capability, params) => {
+          const ipc = this.ipc;
+          if (ipc === null) return Promise.reject(new Error("ipc not ready"));
+          return ipc.request(
             "capability_request",
             { run_id: payload.run_id, capability, params },
             controller.signal,
-          ),
+          );
+        },
       });
 
       await module.run(ctx);

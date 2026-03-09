@@ -5,11 +5,11 @@ import { fileURLToPath } from "node:url";
 
 import { loadWorkflowModule } from "../src/loader.ts";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const filename = fileURLToPath(import.meta.url);
+const dirname = path.dirname(filename);
 
 test("loadWorkflowModule accepts valid metadata and async default", async () => {
-  const workflowPath = path.join(__dirname, "fixtures/workflow-valid.ts");
+  const workflowPath = path.join(dirname, "fixtures/workflow-valid.ts");
   const loaded = await loadWorkflowModule(workflowPath);
 
   assert.equal(loaded.meta.id, "duos");
@@ -19,7 +19,7 @@ test("loadWorkflowModule accepts valid metadata and async default", async () => 
 
 test("loadWorkflowModule rejects invalid metadata", async () => {
   const workflowPath = path.join(
-    __dirname,
+    dirname,
     "fixtures/workflow-invalid-meta.ts",
   );
 
@@ -31,7 +31,7 @@ test("loadWorkflowModule rejects invalid metadata", async () => {
 
 test("loadWorkflowModule rejects non-async default export", async () => {
   const workflowPath = path.join(
-    __dirname,
+    dirname,
     "fixtures/workflow-invalid-default.ts",
   );
 

@@ -139,6 +139,16 @@ export default tseslint.config(
           leadingUnderscore: "allow",
           trailingUnderscore: "allow",
         },
+        // IPC protocol objects use snake_case to match the Rust wire format.
+        // Object literal properties and type properties are exempt from camelCase.
+        {
+          selector: "objectLiteralProperty",
+          format: null,
+        },
+        {
+          selector: "typeProperty",
+          format: null,
+        },
       ],
     },
   },
@@ -156,6 +166,8 @@ export default tseslint.config(
         },
       ],
       "@typescript-eslint/no-floating-promises": "off",
+      // Boolean naming prefix rules are noisy in test assertions; disable for tests.
+      "@typescript-eslint/naming-convention": "off",
     },
   }
 );

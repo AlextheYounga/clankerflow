@@ -4378,10 +4378,11 @@ var require_gray_matter = __commonJS({
 // runtime/src/protocol.ts
 function parseIpcMessage(input) {
   const parsed = typeof input === "string" ? JSON.parse(input) : input;
-  if (parsed.v !== "v1") {
+  if (typeof parsed !== "object" || parsed === null || !("v" in parsed) || parsed.v !== "v1") {
     throw new Error("unsupported protocol version");
   }
-  if (!parsed.id || !parsed.kind || !parsed.name || !parsed.payload) {
+  const msg = parsed;
+  if (typeof msg.id !== "string" || typeof msg.kind !== "string" || typeof msg.name !== "string" || typeof msg.payload !== "object" || msg.payload === null) {
     throw new Error("invalid IPC message");
   }
   return parsed;
@@ -4421,7 +4422,7 @@ var IpcTransport = class {
     this.disconnectHandler = handler;
   }
   send(message) {
-    if (typeof this.proc.send !== "function" || this.proc.connected === false) {
+    if (typeof this.proc.send !== "function" || this.proc.connected !== true) {
       return;
     }
     this.proc.send(message, (error) => {
@@ -4499,7 +4500,7 @@ var IpcRouter = class {
   request(name, payload, signal) {
     const requestId = `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     return new Promise((resolve, reject) => {
-      if (signal?.aborted) {
+      if (signal?.aborted === true) {
         reject(new Error("operation cancelled"));
         return;
       }
@@ -8932,12 +8933,12 @@ function isTaskError(result) {
 function getErrorMessage(result) {
   return Buffer.concat([...result.stdOut, ...result.stdErr]);
 }
-function errorDetectionHandler(overwrite = false, isError = isTaskError, errorMessage3 = getErrorMessage) {
+function errorDetectionHandler(overwrite = false, isError = isTaskError, errorMessage5 = getErrorMessage) {
   return (error, result) => {
     if (!overwrite && error || !isError(result)) {
       return error;
     }
-    return errorMessage3(result);
+    return errorMessage5(result);
   };
 }
 function errorDetectionPlugin(config) {
@@ -9136,6 +9137,39 @@ init_git_response_error();
 var simpleGit = gitInstanceFactory;
 
 // runtime/src/helpers/git.ts
+function errorCode(error) {
+  if (typeof error === "object" && error !== null && "code" in error && typeof error.code === "number") {
+    return error.code;
+  }
+  return 1;
+}
+function errorMessage2(error) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+async function wrap2(git2, cmd, fn) {
+  try {
+    const result = await fn(git2);
+    return {
+      ok: true,
+      code: 0,
+      stdout: typeof result === "string" ? result : JSON.stringify(result),
+      stderr: "",
+      command: cmd
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      code: errorCode(error),
+      stdout: "",
+      stderr: errorMessage2(error),
+      command: cmd
+    };
+  }
+}
+function filesLabel(files) {
+  return Array.isArray(files) ? files.join(" ") : files;
+}
 function createGitContext(workspaceRoot2) {
   const options2 = {
     baseDir: workspaceRoot2,
@@ -9144,58 +9178,33 @@ function createGitContext(workspaceRoot2) {
     trimmed: true
   };
   const git2 = simpleGit(options2);
-  async function wrap2(cmd, fn) {
-    try {
-      const result = await fn();
-      return {
-        ok: true,
-        code: 0,
-        stdout: typeof result === "string" ? result : JSON.stringify(result),
-        stderr: "",
-        command: cmd
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        code: error.code || 1,
-        stdout: "",
-        stderr: error.message || String(error),
-        command: cmd
-      };
-    }
-  }
   return {
-    status: () => wrap2("git status", () => git2.status()),
-    diff: () => wrap2("git diff", () => git2.diff()),
-    add: (files) => wrap2(`git add ${files}`, () => git2.add(files)),
-    commit: (message) => wrap2(`git commit -m "${message}"`, () => git2.commit(message)),
+    status: () => wrap2(git2, "git status", (g) => g.status()),
+    diff: () => wrap2(git2, "git diff", (g) => g.diff()),
+    add: (files) => wrap2(git2, `git add ${filesLabel(files)}`, (g) => g.add(files)),
+    commit: (message) => wrap2(git2, `git commit -m "${message}"`, (g) => g.commit(message)),
     push: (remote, branch) => wrap2(
-      `git push ${remote || ""} ${branch || ""}`,
-      () => git2.push(remote, branch)
+      git2,
+      `git push ${remote ?? ""} ${branch ?? ""}`,
+      (g) => g.push(remote, branch)
     ),
     pull: (remote, branch) => wrap2(
-      `git pull ${remote || ""} ${branch || ""}`,
-      () => git2.pull(remote, branch)
+      git2,
+      `git pull ${remote ?? ""} ${branch ?? ""}`,
+      (g) => g.pull(remote, branch)
     ),
-    log: (options3) => wrap2("git log", () => git2.log(options3)),
-    checkout: (branch) => wrap2(`git checkout ${branch}`, () => git2.checkout(branch)),
+    log: (options3) => wrap2(git2, "git log", (g) => g.log(options3)),
+    checkout: (branch) => wrap2(git2, `git checkout ${branch}`, (g) => g.checkout(branch)),
     checkoutBranch: (branch, startPoint) => wrap2(
+      git2,
       `git checkout -b ${branch} ${startPoint}`,
-      () => git2.checkoutBranch(branch, startPoint)
+      (g) => g.checkoutBranch(branch, startPoint)
     )
   };
 }
 
 // runtime/src/helpers/tickets/context.ts
 import path3 from "node:path";
-
-// runtime/src/helpers/tickets/scanner.ts
-import fs3 from "node:fs/promises";
-import path2 from "node:path";
-
-// runtime/src/helpers/tickets/parser.ts
-var import_gray_matter = __toESM(require_gray_matter(), 1);
-import fs2 from "node:fs/promises";
 
 // runtime/src/helpers/tickets/schema.ts
 var TicketStatus = {
@@ -9207,7 +9216,9 @@ var TicketStatus = {
   CLOSED: "CLOSED"
 };
 function normalizeTicketStatus(value) {
-  if (!value) return TicketStatus.OPEN;
+  if (value === void 0 || value === null || value.trim().length === 0) {
+    return TicketStatus.OPEN;
+  }
   const raw = value.trim().toUpperCase().replace(/[-\s]/g, "_");
   const map = {
     OPEN: TicketStatus.OPEN,
@@ -9221,36 +9232,46 @@ function normalizeTicketStatus(value) {
     COMPLETE: TicketStatus.CLOSED,
     COMPLETED: TicketStatus.CLOSED
   };
-  return map[raw] || TicketStatus.OPEN;
+  return map[raw] ?? TicketStatus.OPEN;
 }
 var TICKET_ID_ALIASES = ["id", "ticket_id", "ticketid"];
 function resolveTicketId(frontmatter) {
   for (const key of TICKET_ID_ALIASES) {
     const value = frontmatter[key];
     if (value !== void 0 && value !== null) {
-      const normalized = String(value).trim();
-      if (normalized) return normalized;
+      const normalized = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+      if (normalized.length > 0) return normalized;
     }
   }
   return null;
 }
 
+// runtime/src/helpers/tickets/ops.ts
+import fs3 from "node:fs/promises";
+
 // runtime/src/helpers/tickets/parser.ts
+var import_gray_matter = __toESM(require_gray_matter(), 1);
+import fs2 from "node:fs/promises";
 function parseTicketContent(content, filePath) {
-  const { data: frontmatter, content: body } = (0, import_gray_matter.default)(content);
+  const { data, content: body } = (0, import_gray_matter.default)(content);
+  const frontmatter = data;
   const ticketId = resolveTicketId(frontmatter);
-  const title = String(frontmatter.title || "").trim();
-  if (!ticketId || !title) {
+  const rawTitle = frontmatter.title;
+  const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
+  if (ticketId === null || title.length === 0) {
     throw new Error(
       `Ticket missing required fields (id, title) in ${filePath}`
     );
   }
+  const rawWorktree = frontmatter.worktree;
+  const worktree = typeof rawWorktree === "string" ? rawWorktree.trim() : "none";
+  const rawStatus = typeof frontmatter.status === "string" ? frontmatter.status : void 0;
   return {
     ticketId,
     title,
-    status: normalizeTicketStatus(frontmatter.status),
-    worktree: String(frontmatter.worktree || "none").trim(),
-    description: body.trim() || null,
+    status: normalizeTicketStatus(rawStatus),
+    worktree,
+    description: body.trim().length > 0 ? body.trim() : null,
     filePath,
     frontmatter
   };
@@ -9260,81 +9281,19 @@ async function parseTicketFile(filePath) {
   return parseTicketContent(content, filePath);
 }
 function renderTicketDocument(frontmatter, body) {
-  return import_gray_matter.default.stringify(body.trim() ? `
+  return import_gray_matter.default.stringify(body.trim().length > 0 ? `
 ${body.trim()}
 ` : "", frontmatter);
 }
 
-// runtime/src/helpers/tickets/scanner.ts
-async function scanTickets(directoryPath) {
-  const tickets2 = [];
-  const errors = [];
-  try {
-    const entries = await fs3.readdir(directoryPath, { withFileTypes: true });
-    const sortedEntries = entries.filter(
-      (e) => e.isFile() && (e.name.endsWith(".md") || e.name.endsWith(".markdown"))
-    ).sort((a, b) => a.name.localeCompare(b.name, "en"));
-    for (const entry of sortedEntries) {
-      const filePath = path2.join(directoryPath, entry.name);
-      try {
-        const ticket = await parseTicketFile(filePath);
-        tickets2.push(ticket);
-      } catch (error) {
-        errors.push({ filePath, message: error.message || String(error) });
-      }
-    }
-  } catch (error) {
-    if (error.code !== "ENOENT") {
-      throw error;
-    }
-  }
-  return { tickets: tickets2, errors };
-}
-
-// runtime/src/helpers/tickets/lookup.ts
-var TicketLookup = class {
-  byId = /* @__PURE__ */ new Map();
-  byStatus = /* @__PURE__ */ new Map();
-  constructor(tickets2) {
-    for (const ticket of tickets2) {
-      this.byId.set(ticket.ticketId, ticket);
-      const bucket = this.byStatus.get(ticket.status) || [];
-      bucket.push(ticket);
-      this.byStatus.set(ticket.status, bucket);
-    }
-    for (const [status, bucket] of this.byStatus.entries()) {
-      this.byStatus.set(status, this.sortTickets(bucket));
-    }
-  }
-  sortTickets(tickets2) {
-    return [...tickets2].sort((a, b) => {
-      return a.ticketId.localeCompare(b.ticketId, "en", { numeric: true });
-    });
-  }
-  list() {
-    return Array.from(this.byId.values());
-  }
-  get(id) {
-    return this.byId.get(id);
-  }
-  listByStatus(status) {
-    return this.byStatus.get(status) || [];
-  }
-  getNextByStatus(status) {
-    const bucket = this.listByStatus(status);
-    return bucket.length > 0 ? bucket[0] : void 0;
-  }
-};
-
 // runtime/src/helpers/tickets/ops.ts
-import fs4 from "node:fs/promises";
 async function updateTicketStatus(ticket, status) {
   const nextStatus = normalizeTicketStatus(status);
-  const content = await fs4.readFile(ticket.filePath, "utf8");
+  const content = await fs3.readFile(ticket.filePath, "utf8");
   const { data: frontmatter, content: body } = (await Promise.resolve().then(() => __toESM(require_gray_matter(), 1))).default(content);
   frontmatter.status = nextStatus;
   const rendered = renderTicketDocument(frontmatter, body);
-  await fs4.writeFile(ticket.filePath, rendered);
+  await fs3.writeFile(ticket.filePath, rendered);
   return {
     ...ticket,
     status: nextStatus,
@@ -9342,7 +9301,7 @@ async function updateTicketStatus(ticket, status) {
   };
 }
 async function addTicketComment(ticket, text, section = "Comments") {
-  const content = await fs4.readFile(ticket.filePath, "utf8");
+  const content = await fs3.readFile(ticket.filePath, "utf8");
   const { data: frontmatter, content: body } = (await Promise.resolve().then(() => __toESM(require_gray_matter(), 1))).default(content);
   const heading = `## ${section}`;
   const entry = `- ${text.trim()}`;
@@ -9369,10 +9328,84 @@ ${entry}
 `;
   }
   const rendered = renderTicketDocument(frontmatter, newBody);
-  await fs4.writeFile(ticket.filePath, rendered);
+  await fs3.writeFile(ticket.filePath, rendered);
 }
 
+// runtime/src/helpers/tickets/scanner.ts
+import fs4 from "node:fs/promises";
+import path2 from "node:path";
+function errorMessage3(error) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+function isEnoent(error) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+async function scanTickets(directoryPath) {
+  const tickets2 = [];
+  const errors = [];
+  try {
+    const entries = await fs4.readdir(directoryPath, { withFileTypes: true });
+    const sortedEntries = entries.filter(
+      (e) => e.isFile() && (e.name.endsWith(".md") || e.name.endsWith(".markdown"))
+    ).sort((a, b) => a.name.localeCompare(b.name, "en"));
+    for (const entry of sortedEntries) {
+      const filePath = path2.join(directoryPath, entry.name);
+      try {
+        const ticket = await parseTicketFile(filePath);
+        tickets2.push(ticket);
+      } catch (error) {
+        errors.push({ filePath, message: errorMessage3(error) });
+      }
+    }
+  } catch (error) {
+    if (!isEnoent(error)) {
+      throw error;
+    }
+  }
+  return { tickets: tickets2, errors };
+}
+
+// runtime/src/helpers/tickets/lookup.ts
+var TicketLookup = class {
+  byId = /* @__PURE__ */ new Map();
+  byStatus = /* @__PURE__ */ new Map();
+  constructor(tickets2) {
+    for (const ticket of tickets2) {
+      this.byId.set(ticket.ticketId, ticket);
+      const bucket = this.byStatus.get(ticket.status) ?? [];
+      bucket.push(ticket);
+      this.byStatus.set(ticket.status, bucket);
+    }
+    for (const [status, bucket] of this.byStatus.entries()) {
+      this.byStatus.set(status, this.sortTickets(bucket));
+    }
+  }
+  sortTickets(tickets2) {
+    return [...tickets2].sort((a, b) => {
+      return a.ticketId.localeCompare(b.ticketId, "en", { numeric: true });
+    });
+  }
+  list() {
+    return Array.from(this.byId.values());
+  }
+  get(id) {
+    return this.byId.get(id);
+  }
+  listByStatus(status) {
+    return this.byStatus.get(status) ?? [];
+  }
+  getNextByStatus(status) {
+    const bucket = this.listByStatus(status);
+    return bucket.length > 0 ? bucket[0] : void 0;
+  }
+};
+
 // runtime/src/helpers/tickets/context.ts
+function extractMessage(error) {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 function createTicketContext(workspaceRoot2) {
   const ticketsDir = path3.join(workspaceRoot2, ".agents", "tickets");
   async function getIndex() {
@@ -9388,8 +9421,8 @@ function createTicketContext(workspaceRoot2) {
         return {
           ok: false,
           tickets: [],
-          errors: [error.message],
-          error: error.message
+          errors: [extractMessage(error)],
+          error: extractMessage(error)
         };
       }
     },
@@ -9397,42 +9430,42 @@ function createTicketContext(workspaceRoot2) {
       try {
         const { index } = await getIndex();
         const ticket = index.get(id);
-        if (!ticket) return { ok: false, error: `Ticket not found: ${id}` };
+        if (ticket === void 0) return { ok: false, error: `Ticket not found: ${id}` };
         return { ok: true, ticket };
       } catch (error) {
-        return { ok: false, error: error.message };
+        return { ok: false, error: extractMessage(error) };
       }
     },
     getNext: async (options2) => {
       try {
-        const status = normalizeTicketStatus(options2?.status || "OPEN");
+        const status = normalizeTicketStatus(options2?.status ?? "OPEN");
         const { index } = await getIndex();
         const ticket = index.getNextByStatus(status);
         return { ok: true, ticket };
       } catch (error) {
-        return { ok: false, error: error.message };
+        return { ok: false, error: extractMessage(error) };
       }
     },
     updateStatus: async ({ id, status }) => {
       try {
         const { index } = await getIndex();
         const ticket = index.get(id);
-        if (!ticket) return { ok: false, error: `Ticket not found: ${id}` };
+        if (ticket === void 0) return { ok: false, error: `Ticket not found: ${id}` };
         const updated = await updateTicketStatus(ticket, status);
         return { ok: true, ticket: updated };
       } catch (error) {
-        return { ok: false, error: error.message };
+        return { ok: false, error: extractMessage(error) };
       }
     },
     comment: async ({ id, text, section }) => {
       try {
         const { index } = await getIndex();
         const ticket = index.get(id);
-        if (!ticket) return { ok: false, error: `Ticket not found: ${id}` };
+        if (ticket === void 0) return { ok: false, error: `Ticket not found: ${id}` };
         await addTicketComment(ticket, text, section);
         return { ok: true };
       } catch (error) {
-        return { ok: false, error: error.message };
+        return { ok: false, error: extractMessage(error) };
       }
     }
   };
@@ -9467,12 +9500,12 @@ function runExec(command, args, cwd, signal) {
     });
     let stdout = "";
     let stderr = "";
-    child.stdout?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk) => {
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
       stdout += chunk;
     });
-    child.stderr?.setEncoding("utf8");
-    child.stderr?.on("data", (chunk) => {
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
       stderr += chunk;
     });
     const onAbort = () => {
@@ -9520,7 +9553,7 @@ function resolveExecSpec(runtimeEnv, command, args, workspaceRoot2) {
 function createContext(options2) {
   return {
     yolo: options2.yolo,
-    ticket: options2.ticket || null,
+    ticket: options2.ticket ?? null,
     agent: {
       run: (input) => options2.invokeCapability("session_run", {
         yolo: options2.yolo,
@@ -9581,14 +9614,14 @@ async function loadWorkflowModule(workflowPath) {
   return { meta, run };
 }
 function validateMeta(input) {
-  if (!input || typeof input !== "object") {
+  if (input === null || input === void 0 || typeof input !== "object") {
     throw new Error("workflow meta export is required");
   }
   const meta = input;
-  if (!meta.id || typeof meta.id !== "string") {
+  if (typeof meta.id !== "string" || meta.id.length === 0) {
     throw new Error("workflow meta.id must be a non-empty string");
   }
-  if (!meta.name || typeof meta.name !== "string") {
+  if (typeof meta.name !== "string" || meta.name.length === 0) {
     throw new Error("workflow meta.name must be a non-empty string");
   }
   if (meta.runtime !== "host" && meta.runtime !== "container") {
@@ -9600,8 +9633,7 @@ function validateDefaultRun(input) {
   if (typeof input !== "function") {
     throw new Error("workflow default export must be an async function");
   }
-  const runFn = input;
-  const constructorName = runFn.constructor?.name;
+  const constructorName = input.constructor.name;
   if (constructorName !== "AsyncFunction") {
     throw new Error("workflow default export must be an async function");
   }
@@ -9622,7 +9654,7 @@ var Runner = class {
     transport.onDisconnect(() => this.shutdown());
     this.ipc = new IpcRouter(transport);
     this.ipc.start();
-    this.ipc.onCommand("start_run", async (payload) => {
+    this.ipc.onCommand("start_run", (payload) => {
       const startPayload = payload;
       void this.executeRun(startPayload);
     });
@@ -9630,7 +9662,7 @@ var Runner = class {
       const cancelPayload = payload;
       this.activeRuns.get(cancelPayload.run_id)?.controller.abort();
     });
-    this.ipc.onCommand("shutdown", async () => this.shutdown());
+    this.ipc.onCommand("shutdown", () => this.shutdown());
   }
   async executeRun(payload) {
     const controller = new AbortController();
@@ -9661,7 +9693,7 @@ var Runner = class {
         runtimeEnv: payload.runtime_env,
         yolo: payload.yolo,
         signal: controller.signal,
-        ticket: payload.workflow_input?.ticket,
+        ticket: payload.workflow_input.ticket,
         emitEvent: (name, eventPayload) => {
           this.emit(name, {
             run_id: payload.run_id,
@@ -9669,11 +9701,15 @@ var Runner = class {
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           });
         },
-        invokeCapability: (capability, params) => this.ipc.request(
-          "capability_request",
-          { run_id: payload.run_id, capability, params },
-          controller.signal
-        )
+        invokeCapability: (capability, params) => {
+          const ipc = this.ipc;
+          if (ipc === null) return Promise.reject(new Error("ipc not ready"));
+          return ipc.request(
+            "capability_request",
+            { run_id: payload.run_id, capability, params },
+            controller.signal
+          );
+        }
       });
       await module2.run(ctx);
       this.emit("step_finished", {
@@ -9713,7 +9749,7 @@ var Runner = class {
         this.emit("run_failed", {
           run_id: payload.run_id,
           error_code: "WORKFLOW_ERROR",
-          message: errorMessage2(error),
+          message: errorMessage4(error),
           details: {},
           failed_at: (/* @__PURE__ */ new Date()).toISOString()
         });
@@ -9738,7 +9774,7 @@ var Runner = class {
     process.exit(0);
   }
 };
-function errorMessage2(error) {
+function errorMessage4(error) {
   if (error instanceof Error) return error.message;
   return String(error);
 }

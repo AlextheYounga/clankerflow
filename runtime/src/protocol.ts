@@ -7,52 +7,65 @@ export type IpcMessageKind =
   | "response"
   | "error";
 
-export type IpcMessage = {
+export interface IpcMessage {
   v: "v1";
   id: string;
   kind: IpcMessageKind;
   name: string;
   payload: Record<string, unknown>;
-};
+}
 
-export type StartRunPayload = {
+export interface StartRunPayload {
   run_id: number;
   workflow_path: string;
   runtime_env: RuntimeEnv;
   yolo: boolean;
   workflow_input: Record<string, unknown>;
-};
+}
 
-export type CancelRunPayload = {
+export interface CancelRunPayload {
   run_id: number;
   reason: string;
-};
+}
 
-export type CapabilityRequestPayload = {
+export interface CapabilityRequestPayload {
   request_id: string;
   run_id: number;
   capability: string;
   params: Record<string, unknown>;
-};
+}
 
-export type CapabilityResponsePayload = {
+export interface CapabilityResponsePayload {
   result: Record<string, unknown>;
-};
+}
 
-export type CapabilityErrorPayload = {
+export interface CapabilityErrorPayload {
   error: string;
-};
+}
 
 export function parseIpcMessage(input: unknown): IpcMessage {
-  const parsed =
-    typeof input === "string"
-      ? (JSON.parse(input) as IpcMessage)
-      : (input as IpcMessage);
-  if (parsed.v !== "v1") {
+  const parsed: unknown =
+    typeof input === "string" ? (JSON.parse(input) as unknown) : input;
+
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("v" in parsed) ||
+    (parsed as Record<string, unknown>).v !== "v1"
+  ) {
     throw new Error("unsupported protocol version");
   }
-  if (!parsed.id || !parsed.kind || !parsed.name || !parsed.payload) {
+
+  const msg = parsed as Record<string, unknown>;
+  if (
+    typeof msg.id !== "string" ||
+    typeof msg.kind !== "string" ||
+    typeof msg.name !== "string" ||
+    typeof msg.payload !== "object" ||
+    msg.payload === null
+  ) {
     throw new Error("invalid IPC message");
   }
-  return parsed;
+
+  return parsed as IpcMessage;
 }

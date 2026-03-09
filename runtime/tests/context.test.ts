@@ -40,8 +40,8 @@ test("createContext exec runs host command", async () => {
     runtimeEnv: "host",
     yolo: false,
     signal: controller.signal,
-    emitEvent: () => {},
-    invokeCapability: async () => ({}),
+    emitEvent: (_name, _payload) => { /* no-op in test */ },
+    invokeCapability: () => Promise.resolve({}),
   });
 
   const result = await context.exec("node", ["-e", "process.stdout.write('ok')"]);

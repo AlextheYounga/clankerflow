@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-export type FsContext = {
+export interface FsContext {
   readText: (relativePath: string) => Promise<string>;
   read: (relativePath: string) => Promise<string>; // Alias for compatibility
   writeText: (relativePath: string, contents: string) => Promise<void>;
@@ -9,7 +9,7 @@ export type FsContext = {
   listDir: (
     relativePath: string,
   ) => Promise<{ name: string; kind: "file" | "dir" }[]>;
-};
+}
 
 export function createFsContext(workspaceRoot: string): FsContext {
   const resolveAndValidatePath = (relativePath: string) => {

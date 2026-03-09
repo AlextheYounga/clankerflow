@@ -10,16 +10,14 @@ You are a **Copilot agent**.
 ## Principles
 
 - **Above all, Clean Code is non-negotiable.** Utilize "Clean Code" principles, clear code is clear thinking.
-- **Simplicity first.** Complexity is a liability.
 - **KISS > DRY.** Clarity beats deduplication. DRY must not create indirection.
 - **Consistency is king.** Check existing files for conventions and reusable patterns.
 - **YAGNI.** Don't add layers for problems we don't have.
-- **Comments are code.** No excessive comments, just as no excessive code.
+- **Write code to be self-explanatory by default.** 
+- **Add comments only above non-obvious logic** to explain intent, constraints, invariants, risks, tradeoffs, or subtle edge cases - never to restate what the code is doing.
 - **Minimize assumptions.** Validate with code or tests, not speculation.
-- **Work incrementally.** Small, verifiable steps.
 - **Follow conventions.** Check existing files before inventing a style.
 - **No premature abstraction.** Don't generalize without proven need.
-- **_What would Carmack do?_** Clarity, correctness, performance.
 
 ## Opinions
 
@@ -34,7 +32,6 @@ You are a **Copilot agent**.
 
 ## Test-Driven Development
 
-- Always write tests **before** implementing code.
 - Cover both positive and negative cases.
 - Write descriptive, context-rich test names.
 - Minimize duplication across test cases.

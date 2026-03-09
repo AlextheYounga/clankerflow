@@ -18,7 +18,9 @@ export const TicketStatus = {
 export function normalizeTicketStatus(
   value: string | undefined | null,
 ): TicketStatus {
-  if (!value) return TicketStatus.OPEN;
+  if (value === undefined || value === null || value.trim().length === 0) {
+    return TicketStatus.OPEN;
+  }
   const raw = value.trim().toUpperCase().replace(/[-\s]/g, "_");
 
   const map: Record<string, TicketStatus> = {
@@ -34,19 +36,22 @@ export function normalizeTicketStatus(
     COMPLETED: TicketStatus.CLOSED,
   };
 
-  return map[raw] || TicketStatus.OPEN;
+  return map[raw] ?? TicketStatus.OPEN;
 }
 
 export const TICKET_ID_ALIASES = ["id", "ticket_id", "ticketid"];
 
 export function resolveTicketId(
-  frontmatter: Record<string, any>,
+  frontmatter: Record<string, unknown>,
 ): string | null {
   for (const key of TICKET_ID_ALIASES) {
     const value = frontmatter[key];
     if (value !== undefined && value !== null) {
-      const normalized = String(value).trim();
-      if (normalized) return normalized;
+      const normalized =
+        typeof value === "string" || typeof value === "number"
+          ? String(value).trim()
+          : "";
+      if (normalized.length > 0) return normalized;
     }
   }
   return null;

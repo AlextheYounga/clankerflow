@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+
 import { createFsContext } from "./helpers/fs.ts";
 import { createGitContext } from "./helpers/git.ts";
 import { createTicketContext } from "./helpers/tickets/index.ts";
@@ -43,13 +44,13 @@ export function runExec(
     let stdout = "";
     let stderr = "";
 
-    child.stdout?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk: string) => {
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
       stdout += chunk;
     });
 
-    child.stderr?.setEncoding("utf8");
-    child.stderr?.on("data", (chunk: string) => {
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
       stderr += chunk;
     });
 

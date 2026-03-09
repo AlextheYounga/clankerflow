@@ -1,39 +1,45 @@
-import matter from "gray-matter";
 import fs from "node:fs/promises";
-import {
-  normalizeTicketStatus,
-  resolveTicketId,
-  TicketStatus,
-} from "./schema.ts";
 
-export type Ticket = {
+import matter from "gray-matter";
+
+import { normalizeTicketStatus, resolveTicketId, type TicketStatus } from "./schema.ts";
+
+export interface Ticket {
   ticketId: string;
   title: string;
   status: TicketStatus;
   worktree: string;
   description: string | null;
   filePath: string;
-  frontmatter: Record<string, any>;
-};
+  frontmatter: Record<string, unknown>;
+}
 
 export function parseTicketContent(content: string, filePath: string): Ticket {
-  const { data: frontmatter, content: body } = matter(content);
+  const { data, content: body } = matter(content);
+  const frontmatter = data as Record<string, unknown>;
 
   const ticketId = resolveTicketId(frontmatter);
-  const title = String(frontmatter.title || "").trim();
+  const rawTitle = frontmatter.title;
+  const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
 
-  if (!ticketId || !title) {
+  if (ticketId === null || title.length === 0) {
     throw new Error(
       `Ticket missing required fields (id, title) in ${filePath}`,
     );
   }
 
+  const rawWorktree = frontmatter.worktree;
+  const worktree =
+    typeof rawWorktree === "string" ? rawWorktree.trim() : "none";
+  const rawStatus =
+    typeof frontmatter.status === "string" ? frontmatter.status : undefined;
+
   return {
     ticketId,
     title,
-    status: normalizeTicketStatus(frontmatter.status),
-    worktree: String(frontmatter.worktree || "none").trim(),
-    description: body.trim() || null,
+    status: normalizeTicketStatus(rawStatus),
+    worktree,
+    description: body.trim().length > 0 ? body.trim() : null,
     filePath,
     frontmatter,
   };
@@ -45,8 +51,8 @@ export async function parseTicketFile(filePath: string): Promise<Ticket> {
 }
 
 export function renderTicketDocument(
-  frontmatter: Record<string, any>,
+  frontmatter: Record<string, unknown>,
   body: string,
 ): string {
-  return matter.stringify(body.trim() ? `\n${body.trim()}\n` : "", frontmatter);
+  return matter.stringify(body.trim().length > 0 ? `\n${body.trim()}\n` : "", frontmatter);
 }

@@ -1,15 +1,15 @@
 import path from "node:path";
 
-export type WorkflowMeta = {
+export interface WorkflowMeta {
   id: string;
   name: string;
   runtime: "host" | "container";
-};
+}
 
-export type WorkflowModule = {
+export interface WorkflowModule {
   meta: WorkflowMeta;
   run: (ctx: unknown) => Promise<void>;
-};
+}
 
 export async function loadWorkflowModule(
   workflowPath: string,
@@ -28,14 +28,14 @@ export async function loadWorkflowModule(
 }
 
 function validateMeta(input: unknown): WorkflowMeta {
-  if (!input || typeof input !== "object") {
+  if (input === null || input === undefined || typeof input !== "object") {
     throw new Error("workflow meta export is required");
   }
   const meta = input as Partial<WorkflowMeta>;
-  if (!meta.id || typeof meta.id !== "string") {
+  if (typeof meta.id !== "string" || meta.id.length === 0) {
     throw new Error("workflow meta.id must be a non-empty string");
   }
-  if (!meta.name || typeof meta.name !== "string") {
+  if (typeof meta.name !== "string" || meta.name.length === 0) {
     throw new Error("workflow meta.name must be a non-empty string");
   }
   if (meta.runtime !== "host" && meta.runtime !== "container") {
@@ -48,8 +48,7 @@ function validateDefaultRun(input: unknown): (ctx: unknown) => Promise<void> {
   if (typeof input !== "function") {
     throw new Error("workflow default export must be an async function");
   }
-  const runFn = input as (ctx: unknown) => unknown;
-  const constructorName = runFn.constructor?.name;
+  const constructorName = input.constructor.name;
   if (constructorName !== "AsyncFunction") {
     throw new Error("workflow default export must be an async function");
   }

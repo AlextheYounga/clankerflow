@@ -1,10 +1,7 @@
 import fs from "node:fs/promises";
-import {
-  parseTicketFile,
-  renderTicketDocument,
-  type Ticket,
-} from "./parser.ts";
-import { normalizeTicketStatus, type TicketStatus } from "./schema.ts";
+
+import { renderTicketDocument, type Ticket } from "./parser.ts";
+import { normalizeTicketStatus } from "./schema.ts";
 
 export async function updateTicketStatus(
   ticket: Ticket,
@@ -30,7 +27,7 @@ export async function updateTicketStatus(
 export async function addTicketComment(
   ticket: Ticket,
   text: string,
-  section: string = "Comments",
+  section = "Comments",
 ): Promise<void> {
   const content = await fs.readFile(ticket.filePath, "utf8");
   const { data: frontmatter, content: body } = (

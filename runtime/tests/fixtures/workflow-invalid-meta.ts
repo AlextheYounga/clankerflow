@@ -4,4 +4,6 @@ export const meta = {
   runtime: "host",
 };
 
-export default async function run(): Promise<void> {}
+export default async function run(): Promise<void> {
+  await Promise.resolve();
+}

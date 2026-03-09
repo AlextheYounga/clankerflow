@@ -3,6 +3,7 @@ import assert from "node:assert";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+
 import { createFsContext } from "../src/helpers/fs.ts";
 
 test("FsContext: workspace scoping", async (t) => {

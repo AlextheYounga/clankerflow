@@ -5,19 +5,20 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 
-type IpcMessage = {
+
+interface IpcMessage {
   v: "v1";
   id: string;
   kind: "command" | "event" | "response" | "error";
   name: string;
   payload: Record<string, unknown>;
-};
+}
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const filename = fileURLToPath(import.meta.url);
+const dirname = path.dirname(filename);
 
 test("runner emits deterministic lifecycle events for successful run", async () => {
-  const workflowPath = path.join(__dirname, "fixtures/workflow-valid.ts");
+  const workflowPath = path.join(dirname, "fixtures/workflow-valid.ts");
   const runId = 101;
   const events = await runRunnerSequence(
     [
@@ -46,7 +47,7 @@ test("runner emits deterministic lifecycle events for successful run", async () 
 });
 
 test("runner cancels active run and finishes with CANCELLED", async () => {
-  const workflowPath = path.join(__dirname, "fixtures/workflow-cancel.ts");
+  const workflowPath = path.join(dirname, "fixtures/workflow-cancel.ts");
   const runId = 202;
   const events = await runRunnerSequence(
     [
@@ -67,7 +68,7 @@ test("runner cancels active run and finishes with CANCELLED", async () => {
 
   const finish = events.find((event) => event.name === "run_finished");
   assert.ok(finish);
-  assert.equal(finish?.payload.status, "CANCELLED");
+  assert.equal(finish.payload.status, "CANCELLED");
 });
 
 function command(
@@ -82,9 +83,9 @@ async function runRunnerSequence(
   commands: IpcMessage[],
   runId: number,
 ): Promise<IpcMessage[]> {
-  const runnerPath = path.join(__dirname, "../src/runner.ts");
+  const runnerPath = path.join(dirname, "../src/runner.ts");
   const child = spawn("node", [runnerPath], {
-    cwd: path.join(__dirname, ".."),
+    cwd: path.join(dirname, ".."),
     stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
   const closePromise = once(child, "close");
@@ -92,16 +93,17 @@ async function runRunnerSequence(
   const events: IpcMessage[] = [];
   child.on("message", (raw: unknown) => {
     const message = raw as IpcMessage;
-    if (message?.kind === "event") {
+    if (message.kind === "event") {
       events.push(message);
     }
   });
 
-  child.stderr?.setEncoding("utf8");
-  child.stderr?.on("data", () => {});
+  // Drain stderr to prevent blocking; we don't assert on it in these tests.
+  child.stderr!.setEncoding("utf8");
+  child.stderr!.on("data", (_chunk: string) => { /* drain */ });
 
   for (const message of commands) {
-    child.send?.(message);
+    child.send(message);
     await delay(20);
   }
 
@@ -112,9 +114,9 @@ async function runRunnerSequence(
     ),
   );
 
-  child.send?.(command("shutdown", "shutdown", { reason: "test_complete" }));
+  child.send(command("shutdown", "shutdown", { reason: "test_complete" }));
   await delay(20);
-  if (child.connected) {
+  if (child.connected === true) {
     child.disconnect();
   }
 
@@ -128,7 +130,7 @@ async function runRunnerSequence(
       }, 5_000);
     }),
   ]);
-  if (timeoutHandle) {
+  if (timeoutHandle !== undefined) {
     clearTimeout(timeoutHandle);
   }
 

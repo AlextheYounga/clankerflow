@@ -1,5 +1,5 @@
-import { type Ticket } from "./parser.ts";
-import { TicketStatus } from "./schema.ts";
+import type { Ticket } from "./parser.ts";
+import type { TicketStatus } from "./schema.ts";
 
 export class TicketLookup {
   private byId = new Map<string, Ticket>();
@@ -8,7 +8,7 @@ export class TicketLookup {
   constructor(tickets: Ticket[]) {
     for (const ticket of tickets) {
       this.byId.set(ticket.ticketId, ticket);
-      const bucket = this.byStatus.get(ticket.status) || [];
+      const bucket = this.byStatus.get(ticket.status) ?? [];
       bucket.push(ticket);
       this.byStatus.set(ticket.status, bucket);
     }
@@ -33,7 +33,7 @@ export class TicketLookup {
   }
 
   listByStatus(status: TicketStatus): Ticket[] {
-    return this.byStatus.get(status) || [];
+    return this.byStatus.get(status) ?? [];
   }
 
   getNextByStatus(status: TicketStatus): Ticket | undefined {

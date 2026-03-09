@@ -5,10 +5,10 @@ import {
 } from "./protocol.ts";
 
 type CommandHandler = (payload: Record<string, unknown>) => void | Promise<void>;
-type PendingRequest = {
+interface PendingRequest {
   resolve: (result: Record<string, unknown>) => void;
   reject: (error: Error) => void;
-};
+}
 
 export class IpcTransport {
   private messageHandler: ((message: IpcMessage) => void) | null = null;
@@ -49,7 +49,7 @@ export class IpcTransport {
   }
 
   send(message: IpcMessage): void {
-    if (typeof this.proc.send !== "function" || this.proc.connected === false) {
+    if (typeof this.proc.send !== "function" || this.proc.connected !== true) {
       return;
     }
 
@@ -85,7 +85,7 @@ export class IpcRouter {
       const pending = this.pendingRequests.get(message.id);
       if (pending) {
         this.pendingRequests.delete(message.id);
-        pending.resolve(message.payload as Record<string, unknown>);
+        pending.resolve(message.payload);
       }
       return;
     }
@@ -147,7 +147,7 @@ export class IpcRouter {
     const requestId = `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
     return new Promise((resolve, reject) => {
-      if (signal?.aborted) {
+      if (signal?.aborted === true) {
         reject(new Error("operation cancelled"));
         return;
       }
