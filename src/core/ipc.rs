@@ -3,7 +3,10 @@ use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
+    // Protocol version is explicit so Rust/Node upgrades can reject incompatible
+    // frames instead of silently mis-parsing them.
     pub v: String,
+    // `id` is reused as request correlation id for request/response pairs.
     pub id: String,
     pub kind: String,
     pub name: String,

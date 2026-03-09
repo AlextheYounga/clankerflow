@@ -14,6 +14,8 @@ pub async fn wait_for_child(mut child: Child) -> Result<()> {
         match child.try_wait() {
             Ok(Some(status)) => {
                 let code = status.code().unwrap_or(-1);
+                // SIGINT-driven exits often surface as 130; treat that as a
+                // controlled cancellation path instead of a hard runtime error.
                 if code != 0 && code != 130 {
                     return Err(anyhow!("Node runner exited with status {code}"));
                 }
@@ -24,6 +26,8 @@ pub async fn wait_for_child(mut child: Child) -> Result<()> {
         }
 
         if Instant::now() >= deadline {
+            // We only force-kill after a grace period so workflow cleanup hooks
+            // can run on cancellation, but never block daemon shutdown forever.
             let _ = child.kill().await;
             return Ok(());
         }

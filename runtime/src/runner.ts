@@ -27,6 +27,8 @@ class Runner {
 
     this.ipc.onCommand("start_run", (payload) => {
       const startPayload = payload as unknown as StartRunPayload;
+      // Command handlers stay non-blocking so one long workflow cannot stall
+      // cancellation/shutdown commands for other active runs.
       void this.executeRun(startPayload);
     });
 
@@ -64,6 +66,8 @@ class Runner {
     const controller = new AbortController();
     this.activeRuns.set(payload.run_id, { runId: payload.run_id, controller });
 
+    // Emit lifecycle events in deterministic order; Rust persists these as the
+    // source of truth for run state transitions and UI timelines.
     this.emit("run_started", {
       run_id: payload.run_id,
       workflow_id: "unknown",
@@ -117,6 +121,8 @@ class Runner {
       invokeCapability: (capability, params) => {
         const ipc = this.ipc;
         if (ipc === null) return Promise.reject(new Error("ipc not ready"));
+        // `request` keeps cancellation responsive: aborting the run rejects any
+        // in-flight capability Promise and prevents hanging workflow steps.
         return ipc.request(
           "capability_request",
           { run_id: payload.run_id, capability, params },

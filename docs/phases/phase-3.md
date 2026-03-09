@@ -20,7 +20,7 @@ Wire `agentctl work` to a real background runtime:
 3. Re-execs itself as hidden `_run` worker.
 4. Prints `workflow started: <run_id>` and exits.
 
-The `_run` worker calls `pump_workflow`, which owns the Node child and the full IPC loop.
+The `_run` worker calls `drive_workflow_runtime`, which owns the Node child and the full IPC loop.
 
 ### IPC runtime bridge
 

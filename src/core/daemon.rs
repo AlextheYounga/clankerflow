@@ -42,8 +42,12 @@ pub struct WorkflowArgs<'a> {
     pub yolo: bool,
 }
 
-/// Parameters for pumping an already-created workflow run (used by `pump_workflow`).
-pub struct PumpArgs<'a> {
+/// Parameters for driving the already-created workflow runtime loop.
+///
+/// "Drive" means this function owns the long-lived Rust<->Node IPC loop:
+/// it reads runtime messages, dispatches capability requests, and persists
+/// lifecycle events until the run reaches a terminal state.
+pub struct DriveRuntimeArgs<'a> {
     pub project_root: &'a Path,
     pub run_id: i64,
     pub workflow_path: &'a Path,
@@ -95,7 +99,7 @@ pub async fn launch_workflow(args: &WorkflowArgs<'_>) -> Result<i64> {
 /// Returns an error if the database connection fails, the Node runner cannot
 /// be spawned, IPC communication fails, or the child process exits with an
 /// unexpected status code.
-pub async fn pump_workflow(args: &PumpArgs<'_>) -> Result<()> {
+pub async fn drive_workflow_runtime(args: &DriveRuntimeArgs<'_>) -> Result<()> {
     let db = connect().await?;
     let NodeRunner { child, ipc } = spawn_runner(args.project_root)?;
     let (ipc_read, mut ipc_write) = tokio_io::split(ipc);
@@ -116,6 +120,8 @@ pub async fn pump_workflow(args: &PumpArgs<'_>) -> Result<()> {
     let mut lines = BufReader::new(ipc_read).lines();
     loop {
         if is_stop_requested(&db, args.run_id).await? {
+            // Stop is polled from persisted run state so the web UI and daemon stay
+            // eventually consistent even if either side restarts mid-run.
             send_cancel(&mut ipc_write, args.run_id).await;
             set_status(&db, args.run_id, RunStatus::Cancelled).await?;
         }
@@ -148,9 +154,9 @@ fn spawn_runner(project_root: &Path) -> Result<NodeRunner> {
     let node_bin = resolve_node_bin()?;
     let runner_path = runner_js_path(project_root);
 
-    // Node's built-in IPC channel is bound from NODE_CHANNEL_FD (fd 3).
-    // We provide one bidirectional Unix socket endpoint for the child and keep
-    // the other endpoint in Rust.
+    // Node enables `process.send` only when an IPC fd is injected at process
+    // startup. We bind that fd explicitly so stdout/stderr remain usable for
+    // human logs while control traffic stays structured on a separate channel.
     let (parent_ipc_fd, child_ipc_fd) = make_socketpair()?;
     let child_ipc_raw = child_ipc_fd.as_raw_fd();
 
@@ -225,6 +231,8 @@ async fn handle_runner_line(
     let message: Message = match serde_json::from_str(trimmed_line) {
         Ok(message) => message,
         Err(error) => {
+            // Bad frames are persisted as run events so post-mortem debugging can
+            // distinguish protocol drift from workflow-level failures.
             append_run_event(
                 db,
                 run_id,
@@ -288,6 +296,8 @@ fn parse_runtime_env(env: &str) -> Result<WorkflowEnv> {
 }
 
 fn run_finished_status(message: &Message) -> RunStatus {
+    // The runner only sends explicit CANCELLED vs SUCCEEDED today; defaulting to
+    // Completed keeps older/newer runner versions forward-compatible.
     match message
         .payload
         .get("status")

@@ -154,6 +154,8 @@ export class IpcRouter {
       }
 
       const abortHandler = () => {
+        // Dropping the pending entry on abort is required to avoid leaking
+        // resolvers when the Rust side is slow or never replies.
         this.pendingRequests.delete(requestId);
         reject(new Error("operation cancelled"));
       };
@@ -178,6 +180,8 @@ export class IpcRouter {
         id: requestId,
         kind: "request",
         name,
+        // Echo request_id in payload because Rust capability dispatch parses it
+        // from payload fields, not from the outer envelope.
         payload: { ...payload, request_id: requestId },
       });
     });

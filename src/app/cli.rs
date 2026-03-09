@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 
 use crate::app::commands;
 use crate::app::types::{MakeCommands, RuntimeEnv};
-use crate::core::daemon::{PumpArgs, pump_workflow};
+use crate::core::daemon::{DriveRuntimeArgs, drive_workflow_runtime};
 
 #[derive(Debug, Parser)]
 #[command(name = "agentctl", about = "AI workflow orchestration CLI")]
@@ -35,7 +35,7 @@ pub enum Commands {
         #[command(subcommand)]
         command: MakeCommands,
     },
-    /// Internal: worker process that runs the Node IPC pump loop
+    /// Internal: worker process that runs the Node IPC runtime loop
     #[command(hide = true, name = "_run")]
     Run {
         #[arg(long)]
@@ -69,14 +69,14 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             project_root,
             yolo,
         } => {
-            let args = PumpArgs {
+            let args = DriveRuntimeArgs {
                 project_root: &project_root,
                 run_id,
                 workflow_path: &workflow_path,
                 env: env.as_str(),
                 yolo,
             };
-            pump_workflow(&args).await
+            drive_workflow_runtime(&args).await
         }
     }
 }

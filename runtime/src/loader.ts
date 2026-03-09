@@ -56,6 +56,8 @@ function validateDefaultRun(input: unknown): (ctx: unknown) => Promise<void> {
 }
 
 function pathToFileUrl(filePath: string): string {
+  // Dynamic import expects file URLs; slash normalization keeps Windows paths
+  // valid without relying on process-global URL helpers.
   const normalized = filePath.replace(/\\/g, "/");
   return `file://${normalized}`;
 }

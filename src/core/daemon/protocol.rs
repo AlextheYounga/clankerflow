@@ -13,6 +13,8 @@ pub enum LoopControl {
 }
 
 pub fn parse_capability_request_payload(payload: &Value) -> Result<(&str, &Value, &str)> {
+    // `request_id` must come from the payload, not the envelope id, because the
+    // router uses it to correlate Promise resolution on the Node side.
     let capability = payload
         .get("capability")
         .and_then(|value| value.as_str())
@@ -44,6 +46,8 @@ pub async fn send_cancel(ipc_write: &mut (impl AsyncWrite + Unpin), run_id: i64)
         "cancel_run",
         serde_json::json!({ "run_id": run_id, "reason": "user_requested" }),
     );
+    // Cancellation is best-effort during teardown; broken pipes are expected
+    // when the child has already exited.
     let _ = write_message(ipc_write, &message).await;
 }
 
@@ -53,5 +57,7 @@ pub async fn send_shutdown(ipc_write: &mut (impl AsyncWrite + Unpin)) {
         "shutdown",
         serde_json::json!({ "reason": "run_complete" }),
     );
+    // Shutdown is a courtesy signal so Node can drain in-flight work before
+    // the parent enforces the grace-period kill.
     let _ = write_message(ipc_write, &message).await;
 }

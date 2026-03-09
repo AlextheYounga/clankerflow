@@ -69,6 +69,8 @@ export function runExec(
     });
     child.on("close", (code) => {
       signal.removeEventListener("abort", onAbort);
+      // Non-zero exit codes are returned to workflow code instead of throwing so
+      // workflows can make explicit policy decisions per command.
       resolve({ code: code ?? 0, stdout, stderr });
     });
   });

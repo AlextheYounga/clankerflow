@@ -4531,6 +4531,8 @@ var IpcRouter = class {
         id: requestId,
         kind: "request",
         name,
+        // Echo request_id in payload because Rust capability dispatch parses it
+        // from payload fields, not from the outer envelope.
         payload: { ...payload, request_id: requestId }
       });
     });
@@ -9543,6 +9545,7 @@ function resolveExecSpec(runtimeEnv, command, args, workspaceRoot2) {
         "agent.docker-compose.yaml"
       ),
       "exec",
+      // Disable pseudo-TTY to keep output deterministic for programmatic parsing.
       "-T",
       "agent",
       command,

@@ -29,6 +29,8 @@ export function resolveExecSpec(
     return { bin: command, args, cwd: workspaceRoot };
   }
 
+  // Container mode shells out through `docker compose exec` so workflows can
+  // keep using the same `ctx.exec` API regardless of runtime target.
   return {
     bin: "docker",
     args: [
@@ -42,6 +44,7 @@ export function resolveExecSpec(
         "agent.docker-compose.yaml",
       ),
       "exec",
+      // Disable pseudo-TTY to keep output deterministic for programmatic parsing.
       "-T",
       "agent",
       command,

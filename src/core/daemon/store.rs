@@ -62,6 +62,8 @@ pub async fn create_run(
 
 pub async fn set_status(db: &DatabaseConnection, id: i64, status: RunStatus) -> Result<()> {
     let now = chrono::Utc::now();
+    // `completed_at` is only meaningful for terminal states; keeping it null for
+    // active states avoids misleading durations in downstream queries.
     let completed_at = matches!(
         status,
         RunStatus::Completed | RunStatus::Failed | RunStatus::Cancelled
@@ -86,6 +88,8 @@ pub async fn is_stop_requested(db: &DatabaseConnection, id: i64) -> Result<bool>
         .one(db)
         .await?
         .ok_or_else(|| anyhow!("workflow run not found: {id}"))?;
+    // Cancellation is represented as desired state in the DB so any worker loop
+    // can observe it, even if the original triggering process is gone.
     Ok(run.status == RunStatus::Cancelled)
 }
 
