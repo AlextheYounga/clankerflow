@@ -25,7 +25,7 @@ pub enum Commands {
         #[arg(long, default_value_t = false)]
         yolo: bool,
         /// Run inside a container with dangerous mode enabled
-        #[arg(long, default_value_t = false)]
+        #[arg(long, default_value_t = false, conflicts_with = "yolo")]
         containment: bool,
     },
     /// Open the `OpenCode` web UI for this project
@@ -62,8 +62,8 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             MakeCommands::Worktree { branch } => commands::make::worktree(&branch),
         },
         Commands::Containment { command } => match command {
-            ContainmentCommands::Up => commands::containment::up(),
-            ContainmentCommands::Down => commands::containment::down(),
+            ContainmentCommands::Up => commands::containment::up().await,
+            ContainmentCommands::Down => commands::containment::down().await,
         },
     }
 }
@@ -77,8 +77,10 @@ fn resolve_work_flags(
         return Ok((env, yolo));
     }
 
-    if env != RuntimeEnv::Host || yolo {
-        anyhow::bail!("--containment cannot be combined with --env or --yolo");
+    // clap catches --containment + --yolo via conflicts_with; this guards
+    // --containment + --env container which clap cannot detect (env has a default).
+    if env != RuntimeEnv::Host {
+        anyhow::bail!("--containment cannot be combined with --env");
     }
 
     Ok((RuntimeEnv::Container, true))
@@ -152,11 +154,10 @@ mod tests {
     }
 
     #[test]
-    fn containment_conflicts_with_explicit_yolo() {
-        let result = resolve_work_flags(RuntimeEnv::Host, true, true);
+    fn containment_conflicts_with_explicit_yolo_at_parse_level() {
+        let result = Cli::try_parse_from(["agentctl", "work", "duos", "--containment", "--yolo"]);
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("--containment"));
     }
 
     #[test]

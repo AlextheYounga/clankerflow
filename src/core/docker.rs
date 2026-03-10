@@ -1,9 +1,9 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 use anyhow::{Result, anyhow};
+use tokio::process::Command;
 
 pub struct Docker;
 
@@ -11,10 +11,10 @@ impl Docker {
     /// Returns `true` if `docker compose` is available on `PATH`.
     #[must_use]
     pub fn is_available() -> bool {
-        Command::new("docker")
+        std::process::Command::new("docker")
             .args(["compose", "version"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status()
             .is_ok_and(|s| s.success())
     }
@@ -23,11 +23,12 @@ impl Docker {
     ///
     /// # Errors
     /// Returns an error if `docker compose build` fails.
-    pub fn build(project_root: &Path, codebase_id: &str) -> Result<()> {
+    pub async fn build(project_root: &Path, codebase_id: &str) -> Result<()> {
         let status = compose_command(project_root)
             .env("CODEBASE_ID", codebase_id)
             .args(["build"])
             .status()
+            .await
             .map_err(|e| anyhow!("failed to run docker compose build: {e}"))?;
 
         if !status.success() {
@@ -43,13 +44,14 @@ impl Docker {
     ///
     /// # Errors
     /// Returns an error if `docker compose up` fails.
-    pub fn up(project_root: &Path, codebase_id: &str) -> Result<()> {
+    pub async fn up(project_root: &Path, codebase_id: &str) -> Result<()> {
         ensure_opencode_config_dir();
 
         let status = compose_command(project_root)
             .env("CODEBASE_ID", codebase_id)
             .args(["up", "-d"])
             .status()
+            .await
             .map_err(|e| anyhow!("failed to run docker compose up: {e}"))?;
 
         if !status.success() {
@@ -62,11 +64,12 @@ impl Docker {
     ///
     /// # Errors
     /// Returns an error if `docker compose down` fails.
-    pub fn down(project_root: &Path, codebase_id: &str) -> Result<()> {
+    pub async fn down(project_root: &Path, codebase_id: &str) -> Result<()> {
         let status = compose_command(project_root)
             .env("CODEBASE_ID", codebase_id)
             .args(["down"])
             .status()
+            .await
             .map_err(|e| anyhow!("failed to run docker compose down: {e}"))?;
 
         if !status.success() {
@@ -79,11 +82,12 @@ impl Docker {
     ///
     /// # Errors
     /// Returns an error if the `docker compose ps` command fails to execute.
-    pub fn is_running(project_root: &Path, codebase_id: &str) -> Result<bool> {
+    pub async fn is_running(project_root: &Path, codebase_id: &str) -> Result<bool> {
         let output = compose_command(project_root)
             .env("CODEBASE_ID", codebase_id)
-            .args(["ps", "-q", "--status=running"])
+            .args(["ps", "-q", "--status=running", "agent"])
             .output()
+            .await
             .map_err(|e| anyhow!("failed to run docker compose ps: {e}"))?;
 
         Ok(!String::from_utf8_lossy(&output.stdout).trim().is_empty())
@@ -93,11 +97,12 @@ impl Docker {
     ///
     /// # Errors
     /// Returns an error if no running container is found.
-    pub fn get_container_id(project_root: &Path, codebase_id: &str) -> Result<String> {
+    pub async fn get_container_id(project_root: &Path, codebase_id: &str) -> Result<String> {
         let output = compose_command(project_root)
             .env("CODEBASE_ID", codebase_id)
             .args(["ps", "-q", "--status=running", "agent"])
             .output()
+            .await
             .map_err(|e| anyhow!("failed to get container id: {e}"))?;
 
         let id = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -112,12 +117,12 @@ impl Docker {
     ///
     /// # Errors
     /// Returns an error if build, start, or container ID retrieval fails.
-    pub fn ensure_running(project_root: &Path, codebase_id: &str) -> Result<String> {
-        if !Self::is_running(project_root, codebase_id)? {
-            Self::build(project_root, codebase_id)?;
-            Self::up(project_root, codebase_id)?;
+    pub async fn ensure_running(project_root: &Path, codebase_id: &str) -> Result<String> {
+        if !Self::is_running(project_root, codebase_id).await? {
+            Self::build(project_root, codebase_id).await?;
+            Self::up(project_root, codebase_id).await?;
         }
-        Self::get_container_id(project_root, codebase_id)
+        Self::get_container_id(project_root, codebase_id).await
     }
 }
 

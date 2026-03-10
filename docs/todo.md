@@ -41,36 +41,25 @@ Legend: `[x]` done, `[ ]` not started, `[~]` partially done / stub exists.
 - [x] DB entities: `workflow`, `workflow_run`, `workflow_session`, `event`
 - [x] Rust tests across 14 modules (63+ tests total)
 - [x] Node tests: runner, loader, context, fs, tickets
+- [x] `src/kit/opencode.json` — minimal OpenCode config template (`$schema`, `model`)
+- [x] `src/core/embeds.rs` — `place_opencode_config(project_root)` — idempotent, skips if already exists
+- [x] `src/app/commands/init.rs` — calls `place_opencode_config` after `copy_kit`
+- [x] `src/core/opencode/client.rs` — `OpencodeClient` wrapping `reqwest`: `create_session`, `chat`, `messages`, `abort`
+- [x] `src/core/opencode.rs` — session capability handlers wired to real client (`session_run`, `session_messages_list`, `session_cancel`, `session_events_subscribe`)
+- [x] `opencode_session_id` written to `workflow_sessions` table when `session_run` creates a session
+- [x] SSE event stream subscribed and relayed to Node as IPC `event` messages without blocking the IPC loop
+- [x] `src/core/docker.rs` — `Docker` struct: `is_available`, `build`, `up`, `down`, `is_running`, `get_container_id`, `ensure_running` (all async via `tokio::process::Command`)
+- [x] `src/core/runner/env.rs` — `spawn_host_runner` and `spawn_container_runner`; container path calls `Docker::ensure_running` then `docker exec`
+- [x] Socketpair/fd-3 IPC replaced with TCP: Rust binds `127.0.0.1:0`, passes port via `AGENTCTL_IPC_PORT`, Node connects back
+- [x] `runtime/src/ipc.ts` — `IpcTransport` rewritten to use `net.createConnection`; container mode connects to `host.docker.internal`; `"error"` handler logs connection failures; `AGENTCTL_IPC_PORT` guarded with clear exit on missing
+- [x] `src/app/cli.rs` — `--containment` flag (shorthand for `--env container --yolo`); clap-level `conflicts_with = "yolo"`; runtime guard for `--env container`
+- [x] `agentctl containment up/down` subcommands — `src/app/commands/containment.rs`
+- [x] `agent.docker-compose.yaml` — `extra_hosts: host.docker.internal:host-gateway` for Linux container-to-host TCP
+- [x] `listener.accept()` wrapped with 30-second timeout and actionable error message
+- [x] Node tests: `runtime/tests/ipc.test.ts` — TCP transport, line framing, disconnect handling
 
 ## Remaining
 
-- [~] `src/core/opencode.rs` — Session capability handlers exist but return stub errors
-- [ ] Create `src/kit/.opencode/opencode.json` with minimal template (`$schema`, `model`)
-- [ ] `src/core/embeds.rs` — Add `place_opencode_config(project_root)` function
-- [ ] `src/app/commands/init.rs` — Call `place_opencode_config` after `copy_kit`
-- [ ] Idempotent: skip if `.opencode/opencode.json` already exists
-- [ ] Tests: assert `.opencode/opencode.json` written on fresh init, skipped if present
-- [ ] `src/core/opencode_client.rs` — New file: `OpencodeClient` struct wrapping `ureq`
-- [ ] `OpencodeClient::create_session()` — `POST /session`
-- [ ] `OpencodeClient::chat(session_id, prompt)` — `POST /session/{id}/message`
-- [ ] `OpencodeClient::messages(session_id)` — `GET /session/{id}/message`
-- [ ] `OpencodeClient::abort(session_id)` — `POST /session/{id}/abort`
-- [ ] Response types as plain structs (only fields we need)
-- [ ] `src/core.rs` — Export `opencode_client` module
-- [ ] `session_events_subscribe` — Open SSE stream on `GET /event`
-- [ ] Design event relay to Node (relay as IPC `event` messages, or subscription polling — TBD)
-- [ ] SSE relay must not block the IPC loop
-- [ ] Replace `session_run` stub with `create_session` + `chat` calls
-- [ ] Replace `session_messages_list` stub with `messages` call
-- [ ] Replace `session_cancel` stub with `abort` call
-- [ ] Replace `session_events_subscribe` stub with SSE stream
-- [ ] Write `opencode_session_id` to `workflow_sessions` table when `session_run` creates a session
-- [ ] `src/core/opencode_client.rs` — Mock HTTP tests via `mockito`
-- [ ] `src/core/opencode.rs` — Update stub tests to assert real return shapes
-- [ ] `src/core/embeds.rs` — Extend embed tests for `.opencode/opencode.json`
-- [ ] `src/app/commands/init.rs` — Assert `.opencode/opencode.json` exists after `run()`
-- [ ] `Cargo.toml` — Add `mockito` to `[dev-dependencies]`
-- [ ] Container lifecycle management (`--env container`, Docker Compose lifecycle)
 - [ ] Background/daemon execution (design in `docs/future/daemon.md`)
 - [ ] Long-term agent memory via SQLite
 - [ ] Bundled Node runtime distribution for releases

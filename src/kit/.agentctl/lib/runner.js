@@ -4402,7 +4402,12 @@ var IpcTransport = class {
   messageHandler = null;
   disconnectHandler = null;
   start() {
-    const port = Number.parseInt(process.env.AGENTCTL_IPC_PORT, 10);
+    const rawPort = process.env.AGENTCTL_IPC_PORT;
+    if (!rawPort) {
+      process.stderr.write("fatal: AGENTCTL_IPC_PORT is not set\n");
+      process.exit(1);
+    }
+    const port = Number.parseInt(rawPort, 10);
     const host = process.env.AGENTCTL_CONTAINER === "1" ? "host.docker.internal" : "127.0.0.1";
     this.socket = net.createConnection({ host, port });
     let buffer = "";
@@ -4426,6 +4431,10 @@ var IpcTransport = class {
           }
         }
       }
+    });
+    this.socket.on("error", (error) => {
+      process.stderr.write(`ipc connection error: ${errorMessage(error)}
+`);
     });
     this.socket.on("close", () => {
       void this.disconnectHandler?.();

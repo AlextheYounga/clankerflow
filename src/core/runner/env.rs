@@ -16,8 +16,12 @@ pub fn parse_runtime_env(env: RuntimeEnv) -> WorkflowEnv {
     }
 }
 
-pub fn spawn_container_runner(project_root: &Path, codebase_id: &str, port: u16) -> Result<Child> {
-    let container_id = Docker::ensure_running(project_root, codebase_id)?;
+pub async fn spawn_container_runner(
+    project_root: &Path,
+    codebase_id: &str,
+    port: u16,
+) -> Result<Child> {
+    let container_id = Docker::ensure_running(project_root, codebase_id).await?;
     let runner_path = "/workspace/.agents/.agentctl/lib/runner.js";
 
     Command::new("docker")

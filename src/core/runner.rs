@@ -8,10 +8,13 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+use std::time::Duration;
+
 use anyhow::{Result, anyhow};
 use tokio::io;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::process::Child;
+use tokio::time::timeout;
 
 use crate::app::types::RuntimeEnv;
 use crate::core::settings::Settings;
@@ -110,10 +113,13 @@ async fn spawn_runner(
 
     let child = match env {
         RuntimeEnv::Host => spawn_host_runner(project_root, port)?,
-        RuntimeEnv::Container => spawn_container_runner(project_root, codebase_id, port)?,
+        RuntimeEnv::Container => spawn_container_runner(project_root, codebase_id, port).await?,
     };
 
-    let (stream, _) = listener.accept().await?;
+    let (stream, _) = timeout(Duration::from_secs(30), listener.accept())
+        .await
+        .map_err(|_| anyhow!("timed out waiting for runner to connect (is Docker running and the image built?)"))?
+        .map_err(|e| anyhow!("failed to accept runner connection: {e}"))?;
 
     Ok(NodeRunner {
         child,
