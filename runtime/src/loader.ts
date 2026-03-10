@@ -12,7 +12,7 @@ export interface WorkflowModule {
 }
 
 export async function loadWorkflowModule(
-  workflowPath: string,
+  workflowPath: string
 ): Promise<WorkflowModule> {
   const normalizedPath = path.resolve(workflowPath);
   const moduleUrl = pathToFileUrl(normalizedPath);

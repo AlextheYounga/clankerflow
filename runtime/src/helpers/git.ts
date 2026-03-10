@@ -40,7 +40,7 @@ function errorMessage(error: unknown): string {
 async function wrap<T>(
   git: SimpleGit,
   cmd: string,
-  fn: (g: SimpleGit) => Promise<T>,
+  fn: (g: SimpleGit) => Promise<T>
 ): Promise<GitResult> {
   try {
     const result = await fn(git);
@@ -85,18 +85,18 @@ export function createGitContext(workspaceRoot: string): GitContext {
       wrap(git, `git commit -m "${message}"`, (g) => g.commit(message)),
     push: (remote?: string, branch?: string) =>
       wrap(git, `git push ${remote ?? ""} ${branch ?? ""}`, (g) =>
-        g.push(remote, branch),
+        g.push(remote, branch)
       ),
     pull: (remote?: string, branch?: string) =>
       wrap(git, `git pull ${remote ?? ""} ${branch ?? ""}`, (g) =>
-        g.pull(remote, branch),
+        g.pull(remote, branch)
       ),
     log: (options?: string[]) => wrap(git, "git log", (g) => g.log(options)),
     checkout: (branch: string) =>
       wrap(git, `git checkout ${branch}`, (g) => g.checkout(branch)),
     checkoutBranch: (branch: string, startPoint: string) =>
       wrap(git, `git checkout -b ${branch} ${startPoint}`, (g) =>
-        g.checkoutBranch(branch, startPoint),
+        g.checkoutBranch(branch, startPoint)
       ),
   };
 }

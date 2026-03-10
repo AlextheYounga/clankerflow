@@ -16,7 +16,7 @@ export const TicketStatus = {
 };
 
 export function normalizeTicketStatus(
-  value: string | undefined | null,
+  value: string | undefined | null
 ): TicketStatus {
   if (value === undefined || value === null || value.trim().length === 0) {
     return TicketStatus.OPEN;
@@ -42,7 +42,7 @@ export function normalizeTicketStatus(
 export const TICKET_ID_ALIASES = ["id", "ticket_id", "ticketid"];
 
 export function resolveTicketId(
-  frontmatter: Record<string, unknown>,
+  frontmatter: Record<string, unknown>
 ): string | null {
   for (const key of TICKET_ID_ALIASES) {
     const value = frontmatter[key];

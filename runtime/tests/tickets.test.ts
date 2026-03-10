@@ -8,7 +8,7 @@ import { createTicketContext } from "../src/helpers/tickets/index.ts";
 
 test("TicketContext: CRUD operations", async (t) => {
   const tmpDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "agentctl-ticket-test-"),
+    path.join(os.tmpdir(), "agentctl-ticket-test-")
   );
   const ticketsDir = path.join(tmpDir, ".agents", "tickets");
   await fs.mkdir(ticketsDir, { recursive: true });
@@ -52,7 +52,7 @@ Body content 2`;
       const result = await ticketCtx.getNext({ status: "OPEN" });
       assert.strictEqual(result.ok, true);
       assert.strictEqual(result.ticket?.ticketId, "001");
-    },
+    }
   );
 
   await t.test("should update ticket status", async () => {
@@ -65,7 +65,7 @@ Body content 2`;
 
     const content = await fs.readFile(
       path.join(ticketsDir, "T-001.md"),
-      "utf8",
+      "utf8"
     );
     assert.ok(content.includes("status: CLOSED"));
   });
@@ -79,7 +79,7 @@ Body content 2`;
 
     const content = await fs.readFile(
       path.join(ticketsDir, "T-001.md"),
-      "utf8",
+      "utf8"
     );
     assert.ok(content.includes("## Comments"));
     assert.ok(content.includes("- this is a comment"));

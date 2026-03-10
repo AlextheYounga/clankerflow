@@ -7,7 +7,7 @@ export interface FsContext {
   writeText: (relativePath: string, contents: string) => Promise<void>;
   exists: (relativePath: string) => Promise<boolean>;
   listDir: (
-    relativePath: string,
+    relativePath: string
   ) => Promise<{ name: string; kind: "file" | "dir" }[]>;
 }
 
@@ -17,7 +17,7 @@ export function createFsContext(workspaceRoot: string): FsContext {
     const normalizedRoot = path.resolve(workspaceRoot);
     if (!absolutePath.startsWith(normalizedRoot)) {
       throw new Error(
-        `Path "${relativePath}" escapes workspace root "${normalizedRoot}"`,
+        `Path "${relativePath}" escapes workspace root "${normalizedRoot}"`
       );
     }
     return absolutePath;

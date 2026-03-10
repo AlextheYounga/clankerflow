@@ -22,18 +22,18 @@ test("loadWorkflowModule rejects invalid metadata", async () => {
 
   await assert.rejects(
     loadWorkflowModule(workflowPath),
-    /workflow meta.id must be a non-empty string/,
+    /workflow meta.id must be a non-empty string/
   );
 });
 
 test("loadWorkflowModule rejects non-async default export", async () => {
   const workflowPath = path.join(
     dirname,
-    "fixtures/workflow-invalid-default.ts",
+    "fixtures/workflow-invalid-default.ts"
   );
 
   await assert.rejects(
     loadWorkflowModule(workflowPath),
-    /default export must be an async function/,
+    /default export must be an async function/
   );
 });

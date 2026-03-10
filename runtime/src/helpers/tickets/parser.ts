@@ -28,7 +28,7 @@ export function parseTicketContent(content: string, filePath: string): Ticket {
 
   if (ticketId === null || title.length === 0) {
     throw new Error(
-      `Ticket missing required fields (id, title) in ${filePath}`,
+      `Ticket missing required fields (id, title) in ${filePath}`
     );
   }
 
@@ -56,10 +56,10 @@ export async function parseTicketFile(filePath: string): Promise<Ticket> {
 
 export function renderTicketDocument(
   frontmatter: Record<string, unknown>,
-  body: string,
+  body: string
 ): string {
   return matter.stringify(
     body.trim().length > 0 ? `\n${body.trim()}\n` : "",
-    frontmatter,
+    frontmatter
   );
 }

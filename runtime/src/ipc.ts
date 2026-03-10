@@ -7,7 +7,7 @@ import {
 } from "./protocol.ts";
 
 type CommandHandler = (
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown>
 ) => void | Promise<void>;
 interface PendingRequest {
   resolve: (result: Record<string, unknown>) => void;
@@ -26,9 +26,10 @@ export class IpcTransport {
       process.exit(1);
     }
     const port = Number.parseInt(rawPort, 10);
-    const host = process.env.AGENTCTL_CONTAINER === "1"
-      ? "host.docker.internal"
-      : "127.0.0.1";
+    const host =
+      process.env.AGENTCTL_CONTAINER === "1"
+        ? "host.docker.internal"
+        : "127.0.0.1";
 
     this.socket = net.createConnection({ host, port });
 
@@ -146,7 +147,7 @@ export class IpcRouter {
   send(
     kind: IpcMessageKind,
     name: string,
-    payload: Record<string, unknown>,
+    payload: Record<string, unknown>
   ): void {
     const message: IpcMessage = {
       v: "v1",
@@ -165,7 +166,7 @@ export class IpcRouter {
   request(
     name: string,
     payload: Record<string, unknown>,
-    signal?: AbortSignal,
+    signal?: AbortSignal
   ): Promise<Record<string, unknown>> {
     const requestId = `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 

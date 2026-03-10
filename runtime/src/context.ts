@@ -6,7 +6,7 @@ import { runExec, sleepWithSignal } from "./helpers.ts";
 type EventEmitter = (name: string, payload: Record<string, unknown>) => void;
 type CapabilityInvoker = (
   name: string,
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown>
 ) => Promise<Record<string, unknown>>;
 
 export interface RunnerContextOptions {
@@ -23,7 +23,7 @@ export function resolveExecSpec(
   runtimeEnv: RuntimeEnv,
   command: string,
   args: string[],
-  workspaceRoot: string,
+  workspaceRoot: string
 ): { bin: string; args: string[]; cwd: string } {
   if (runtimeEnv === "host") {
     return { bin: command, args, cwd: workspaceRoot };
@@ -41,7 +41,7 @@ export function resolveExecSpec(
         ".agents",
         ".agentctl",
         "docker",
-        "agent.docker-compose.yaml",
+        "agent.docker-compose.yaml"
       ),
       "exec",
       // Disable pseudo-TTY to keep output deterministic for programmatic parsing.
@@ -91,7 +91,7 @@ export function createContext(options: RunnerContextOptions) {
         options.runtimeEnv,
         command,
         args,
-        options.workspaceRoot,
+        options.workspaceRoot
       );
       return runExec(spec.bin, spec.args, spec.cwd, options.signal);
     },

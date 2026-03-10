@@ -94,7 +94,7 @@ class Runner {
 
   private async runWorkflow(
     payload: StartRunPayload,
-    controller: AbortController,
+    controller: AbortController
   ): Promise<void> {
     const module = await loadWorkflowModule(payload.workflow_path);
     this.emit("log", {
@@ -126,7 +126,7 @@ class Runner {
         return ipc.request(
           "capability_request",
           { run_id: payload.run_id, capability, params },
-          controller.signal,
+          controller.signal
         );
       },
     });
@@ -137,7 +137,7 @@ class Runner {
   private emitRunError(
     runId: number,
     error: unknown,
-    isAborted: boolean,
+    isAborted: boolean
   ): void {
     if (isAborted) {
       this.emitStep(runId, "cancelled");

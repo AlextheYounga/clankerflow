@@ -5,7 +5,7 @@ import { normalizeTicketStatus } from "./schema.ts";
 
 export async function updateTicketStatus(
   ticket: Ticket,
-  status: string,
+  status: string
 ): Promise<Ticket> {
   const nextStatus = normalizeTicketStatus(status);
   const content = await fs.readFile(ticket.filePath, "utf8");
@@ -27,7 +27,7 @@ export async function updateTicketStatus(
 export async function addTicketComment(
   ticket: Ticket,
   text: string,
-  section = "Comments",
+  section = "Comments"
 ): Promise<void> {
   const content = await fs.readFile(ticket.filePath, "utf8");
   const { data: frontmatter, content: body } = (

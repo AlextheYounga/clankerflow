@@ -40,7 +40,7 @@ function notFound(id: string) {
 }
 
 async function wrapOp<T>(
-  fn: () => Promise<T>,
+  fn: () => Promise<T>
 ): Promise<T | { ok: false; error: string }> {
   try {
     return await fn();

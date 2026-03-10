@@ -8,7 +8,7 @@ test("resolveExecSpec keeps host commands unchanged", () => {
     "host",
     "git",
     ["status", "--short"],
-    "/workspace",
+    "/workspace"
   );
 
   assert.equal(spec.bin, "git");

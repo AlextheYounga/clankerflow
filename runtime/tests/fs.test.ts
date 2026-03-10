@@ -31,7 +31,7 @@ test("FsContext: workspace scoping", async (t) => {
   await t.test("should prevent path escapes", async () => {
     await assert.rejects(
       () => fsCtx.readText("../escaped.txt"),
-      /escapes workspace root/,
+      /escapes workspace root/
     );
   });
 

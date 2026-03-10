@@ -168,5 +168,5 @@ export default tseslint.config(
       // Boolean naming prefix rules are noisy in test assertions; disable for tests.
       "@typescript-eslint/naming-convention": "off",
     },
-  },
+  }
 );

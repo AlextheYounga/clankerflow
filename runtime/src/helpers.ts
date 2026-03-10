@@ -12,7 +12,7 @@ export const tickets = createTicketContext(workspaceRoot);
 
 export function sleepWithSignal(
   ms: number,
-  signal: AbortSignal,
+  signal: AbortSignal
 ): Promise<void> {
   if (signal.aborted) {
     return Promise.reject(new Error("operation cancelled"));
@@ -36,7 +36,7 @@ export function runExec(
   command: string,
   args: string[],
   cwd: string,
-  signal: AbortSignal,
+  signal: AbortSignal
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {

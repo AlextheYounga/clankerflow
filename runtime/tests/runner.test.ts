@@ -30,7 +30,7 @@ test("runner emits deterministic lifecycle events for successful run", async () 
         workflow_input: {},
       }),
     ],
-    runId,
+    runId
   );
 
   const names = events.map((event) => event.name);
@@ -63,7 +63,7 @@ test("runner cancels active run and finishes with CANCELLED", async () => {
         reason: "user_requested",
       }),
     ],
-    runId,
+    runId
   );
 
   const finish = events.find((event) => event.name === "run_finished");
@@ -74,14 +74,14 @@ test("runner cancels active run and finishes with CANCELLED", async () => {
 function command(
   id: string,
   name: string,
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown>
 ): IpcMessage {
   return { v: "v1", id, kind: "command", name, payload };
 }
 
 async function runRunnerSequence(
   commands: IpcMessage[],
-  runId: number,
+  runId: number
 ): Promise<IpcMessage[]> {
   const runnerPath = path.join(dirname, "../src/runner.ts");
 
@@ -129,15 +129,14 @@ async function runRunnerSequence(
 
   await waitFor(() =>
     events.some(
-      (event) =>
-        event.name === "run_finished" && event.payload.run_id === runId,
-    ),
+      (event) => event.name === "run_finished" && event.payload.run_id === runId
+    )
   );
 
   socket.write(
     JSON.stringify(
-      command("shutdown", "shutdown", { reason: "test_complete" }),
-    ) + "\n",
+      command("shutdown", "shutdown", { reason: "test_complete" })
+    ) + "\n"
   );
   await delay(20);
 

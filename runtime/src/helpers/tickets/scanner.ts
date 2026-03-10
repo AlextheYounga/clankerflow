@@ -31,8 +31,7 @@ export async function scanTickets(directoryPath: string): Promise<ScanResult> {
     const sortedEntries = entries
       .filter(
         (e) =>
-          e.isFile() &&
-          (e.name.endsWith(".md") || e.name.endsWith(".markdown")),
+          e.isFile() && (e.name.endsWith(".md") || e.name.endsWith(".markdown"))
       )
       .sort((a, b) => a.name.localeCompare(b.name, "en"));
 
