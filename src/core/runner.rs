@@ -22,13 +22,14 @@ use tokio::time::{Instant, sleep};
 use crate::core::capabilities::{CapabilityRequest, dispatch as dispatch_capability};
 use crate::core::ipc::Message;
 use crate::core::runtime::resolve_node_bin;
+use crate::core::settings::Settings;
 use crate::db::connection::connect;
 use crate::db::entities::workflow_run::{RunStatus, WorkflowEnv};
 
 use protocol::{
     LoopControl, parse_capability_request_payload, send_cancel, send_shutdown, write_message,
 };
-use store::{append_run_event, create_run, set_status, upsert_workflow};
+use store::{append_run_event, create_run, create_workflow_session, set_status, upsert_workflow};
 
 const SHUTDOWN_GRACE_PERIOD: Duration = Duration::from_secs(5);
 
@@ -53,6 +54,7 @@ struct RunContext {
     db: DatabaseConnection,
     run_id: i64,
     cancel: Arc<CancelState>,
+    server_url: String,
 }
 
 /// Run a workflow synchronously, blocking until it completes or is cancelled.
@@ -85,11 +87,19 @@ pub async fn run_workflow(args: &WorkflowArgs<'_>) -> Result<RunStatus> {
     Ok(final_status)
 }
 
+const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
+
 async fn setup_run(args: &WorkflowArgs<'_>) -> Result<RunContext> {
-    let db = connect().await?;
+    let db: DatabaseConnection = connect().await?;
     let workflow_env = parse_runtime_env(args.env)?;
     let workflow_id = upsert_workflow(&db, args.workflow_name, args.workflow_path).await?;
     let run_id = create_run(&db, workflow_id, workflow_env).await?;
+
+    let server_url = Settings::load(args.project_root)
+        .ok()
+        .and_then(|s| s.opencode)
+        .and_then(|o| o.server_url)
+        .unwrap_or_else(|| DEFAULT_OPENCODE_URL.to_string());
 
     println!("workflow started (run id: {run_id})");
 
@@ -98,7 +108,12 @@ async fn setup_run(args: &WorkflowArgs<'_>) -> Result<RunContext> {
         force_kill: AtomicBool::new(false),
     });
 
-    Ok(RunContext { db, run_id, cancel })
+    Ok(RunContext {
+        db,
+        run_id,
+        cancel,
+        server_url,
+    })
 }
 
 async fn send_start_run(
@@ -165,8 +180,7 @@ async fn drive_ipc_loop(
             break;
         };
 
-        let (loop_control, status) =
-            handle_runner_line(&ctx.db, ipc_write, ctx.run_id, &line).await?;
+        let (loop_control, status) = handle_runner_line(ctx, ipc_write, &line).await?;
         if let Some(status) = status {
             final_status = status;
         }
@@ -257,9 +271,8 @@ fn make_socketpair() -> Result<(OwnedFd, OwnedFd)> {
 }
 
 async fn handle_runner_line(
-    db: &DatabaseConnection,
+    ctx: &RunContext,
     ipc_write: &mut (impl AsyncWrite + Unpin),
-    run_id: i64,
     line: &str,
 ) -> Result<(LoopControl, Option<RunStatus>)> {
     let trimmed_line = line.trim();
@@ -271,8 +284,8 @@ async fn handle_runner_line(
         Ok(message) => message,
         Err(error) => {
             append_run_event(
-                db,
-                run_id,
+                &ctx.db,
+                ctx.run_id,
                 "ipc_parse_error",
                 json!({ "error": error.to_string() }),
             )
@@ -286,7 +299,14 @@ async fn handle_runner_line(
             let (capability, params, request_id) =
                 parse_capability_request_payload(&message.payload)?;
             let request = CapabilityRequest { capability, params };
-            let response = dispatch_capability(request_id, &request);
+            let response = dispatch_capability(request_id, &request, &ctx.server_url);
+            if capability == "session_run" {
+                if let Some(session_id) =
+                    response.payload.get("session_id").and_then(|v| v.as_str())
+                {
+                    create_workflow_session(&ctx.db, ctx.run_id, session_id).await?;
+                }
+            }
             if let Err(error) = write_message(ipc_write, &response).await
                 && error.kind() != ErrorKind::BrokenPipe
             {
@@ -295,8 +315,8 @@ async fn handle_runner_line(
             Ok((LoopControl::Continue, None))
         }
         "event" => {
-            append_run_event(db, run_id, &message.name, message.payload.clone()).await?;
-            update_run_status_for_event(db, run_id, &message).await
+            append_run_event(&ctx.db, ctx.run_id, &message.name, message.payload.clone()).await?;
+            update_run_status_for_event(&ctx.db, ctx.run_id, &message).await
         }
         _ => Ok((LoopControl::Continue, None)),
     }

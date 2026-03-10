@@ -20,7 +20,7 @@ pub fn require_str<'a>(params: &'a Value, key: &str, capability: &str) -> Result
 }
 
 #[must_use]
-pub fn dispatch(request_id: &str, request: &CapabilityRequest<'_>) -> Message {
+pub fn dispatch(request_id: &str, request: &CapabilityRequest<'_>, server_url: &str) -> Message {
     let domain = request
         .capability
         .split('_')
@@ -28,7 +28,7 @@ pub fn dispatch(request_id: &str, request: &CapabilityRequest<'_>) -> Message {
         .unwrap_or(request.capability);
 
     let result = match domain {
-        "session" => opencode::dispatch(request.capability, request.params),
+        "session" => opencode::dispatch(request.capability, request.params, server_url),
         _ => Err(anyhow!("unknown capability domain: {domain}")),
     };
 
@@ -49,7 +49,7 @@ mod tests {
             params: &serde_json::json!({}),
         };
 
-        let response = dispatch("req_1", &request);
+        let response = dispatch("req_1", &request, "http://localhost:4096");
 
         assert_eq!(response.kind, "error");
         assert!(

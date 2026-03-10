@@ -9,6 +9,7 @@ use sea_orm::{
 use crate::db::entities::event::ActiveModel as EventActive;
 use crate::db::entities::workflow::ActiveModel as WorkflowActive;
 use crate::db::entities::workflow_run::{ActiveModel as WorkflowRunActive, RunStatus, WorkflowEnv};
+use crate::db::entities::workflow_session::ActiveModel as WorkflowSessionActive;
 
 pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -> Result<i64> {
     use crate::db::entities::workflow::{Column as WorkflowColumn, Entity as Workflow};
@@ -93,6 +94,28 @@ pub async fn append_run_event(
         event_type: ActiveValue::Set(event_type.to_string()),
         data: ActiveValue::Set(Some(data)),
         created_at: ActiveValue::Set(chrono::Utc::now()),
+        ..Default::default()
+    }
+    .insert(db)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn create_workflow_session(
+    db: &DatabaseConnection,
+    run_id: i64,
+    opencode_session_id: &str,
+) -> Result<()> {
+    let now = chrono::Utc::now();
+
+    WorkflowSessionActive {
+        workflow_run_id: ActiveValue::Set(run_id),
+        opencode_session_id: ActiveValue::Set(opencode_session_id.to_string()),
+        label: ActiveValue::Set(None),
+        data: ActiveValue::Set(None),
+        created_at: ActiveValue::Set(now),
+        updated_at: ActiveValue::Set(now),
         ..Default::default()
     }
     .insert(db)

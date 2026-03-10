@@ -1,9 +1,9 @@
 pub mod capabilities;
-pub mod runner;
 pub mod embeds;
 pub mod ipc;
 pub mod opencode;
 pub mod project;
+pub mod runner;
 pub mod runtime;
 pub mod settings;
 pub mod tickets;
