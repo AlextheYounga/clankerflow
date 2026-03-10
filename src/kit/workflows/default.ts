@@ -1,5 +1,5 @@
-import type { WorkflowMeta, WorkflowContext } from "agentctl";
-import { tickets } from "agentctl/helpers";
+import type { WorkflowMeta, WorkflowContext } from "agentkata";
+import { tickets } from "agentkata/helpers";
 
 export const meta: WorkflowMeta = {
   id: "default",

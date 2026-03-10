@@ -1,7 +1,11 @@
 [package]
-name = "agentctl"
+name = "agentkata"
 version = "0.1.0"
 edition = "2024"
+
+[[bin]]
+name = "kata"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"

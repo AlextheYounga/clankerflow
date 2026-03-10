@@ -5,12 +5,12 @@ use std::result;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum AgentCtlError {
-    #[error("agentctl is not initialized in {0} or any parent directory (run `agentctl init`)")]
+pub enum AgentKataError {
+    #[error("kata is not initialized in {0} or any parent directory (run `kata init`)")]
     ProjectNotInitialized(PathBuf),
 }
 
-pub type Result<T> = result::Result<T, AgentCtlError>;
+pub type Result<T> = result::Result<T, AgentKataError>;
 
 fn walk_for_project_root(start: &Path) -> Option<PathBuf> {
     let mut current = Some(start.to_path_buf());
@@ -31,7 +31,7 @@ pub fn get_project_root() -> Option<PathBuf> {
 
 fn require_project_root_from(start: &Path) -> Result<PathBuf> {
     walk_for_project_root(start)
-        .ok_or_else(|| AgentCtlError::ProjectNotInitialized(start.to_path_buf()))
+        .ok_or_else(|| AgentKataError::ProjectNotInitialized(start.to_path_buf()))
 }
 
 /// # Errors
@@ -85,6 +85,6 @@ mod tests {
 
         let err = require_project_root_from(dir.path()).unwrap_err();
 
-        assert!(matches!(err, AgentCtlError::ProjectNotInitialized(_)));
+        assert!(matches!(err, AgentKataError::ProjectNotInitialized(_)));
     }
 }

@@ -7,12 +7,7 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "agentkata": ["./.agentkata/lib/types/agentkata.d.ts"],
-      "agentkata/helpers": ["./.agentkata/lib/src/helpers.ts"]
-    }
+    "types": ["node"]
   },
-  "include": ["workflows/**/*.ts"]
+  "include": ["src/**/*.ts", "types/**/*.d.ts"]
 }

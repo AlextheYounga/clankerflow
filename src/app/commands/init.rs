@@ -40,19 +40,19 @@ pub async fn run() -> anyhow::Result<()> {
     if is_reinit {
         println!("Kit refreshed successfully.");
     } else {
-        println!("Initialized agentctl in {}", project_root.display());
+        println!("Initialized kata in {}", project_root.display());
         println!("  .agents/                 framework scaffold");
         println!("  .agents/settings.json    project settings");
         println!("  .agents/workflows/       put your workflows here");
         println!();
-        println!("Next: edit .agents/settings.json, then run `agentctl work <name>`.");
+        println!("Next: edit .agents/settings.json, then run `kata work <name>`.");
     }
 
     Ok(())
 }
 
 fn npm_install(project_root: &Path) -> anyhow::Result<()> {
-    let lib_dir = project_root.join(".agents/.agentctl/lib");
+    let lib_dir = project_root.join(".agents/.agentkata/lib");
     let status = Command::new("npm")
         .args(["install", "--prefix", lib_dir.to_str().unwrap_or(".")])
         .status()

@@ -7,7 +7,7 @@ import os from "node:os";
 import { createFsContext } from "../src/helpers/fs.ts";
 
 test("FsContext: workspace scoping", async (t) => {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentctl-fs-test-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentkata-fs-test-"));
   const fsCtx = createFsContext(tmpDir);
 
   await t.test("should write and read files", async () => {

@@ -15,7 +15,7 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
     let settings = Settings::load(&project_root)?;
 
     if settings.codebase_id.is_empty() {
-        anyhow::bail!("codebase_id is missing from settings; run `agentctl init` first");
+        anyhow::bail!("codebase_id is missing from settings; run `kata init` first");
     }
 
     let args = WorkflowArgs {

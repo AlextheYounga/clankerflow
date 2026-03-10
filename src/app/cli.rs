@@ -4,7 +4,7 @@ use crate::app::commands;
 use crate::app::types::{ContainmentCommands, MakeCommands, RuntimeEnv};
 
 #[derive(Debug, Parser)]
-#[command(name = "agentctl", about = "AI workflow orchestration CLI")]
+#[command(name = "kata", about = "AI workflow orchestration CLI")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -12,7 +12,7 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Initialize agentctl in current directory
+    /// Initialize kata in current directory
     Init,
     /// Start a workflow run
     Work {
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn work_command_uses_expected_defaults() {
-        let cli = Cli::try_parse_from(["agentctl", "work", "duos"]).unwrap();
+        let cli = Cli::try_parse_from(["kata", "work", "duos"]).unwrap();
 
         match cli.command {
             Commands::Work {
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn work_command_parses_container_env() {
-        let cli = Cli::try_parse_from(["agentctl", "work", "duos", "--env", "container"]).unwrap();
+        let cli = Cli::try_parse_from(["kata", "work", "duos", "--env", "container"]).unwrap();
 
         match cli.command {
             Commands::Work { env, .. } => assert_eq!(env, RuntimeEnv::Container),
@@ -122,14 +122,14 @@ mod tests {
 
     #[test]
     fn work_command_rejects_invalid_env() {
-        let result = Cli::try_parse_from(["agentctl", "work", "duos", "--env", "bad-env"]);
+        let result = Cli::try_parse_from(["kata", "work", "duos", "--env", "bad-env"]);
 
         assert!(result.is_err());
     }
 
     #[test]
     fn work_command_parses_containment_flag() {
-        let cli = Cli::try_parse_from(["agentctl", "work", "duos", "--containment"]).unwrap();
+        let cli = Cli::try_parse_from(["kata", "work", "duos", "--containment"]).unwrap();
 
         match cli.command {
             Commands::Work { containment, .. } => assert!(containment),
@@ -155,14 +155,14 @@ mod tests {
 
     #[test]
     fn containment_conflicts_with_explicit_yolo_at_parse_level() {
-        let result = Cli::try_parse_from(["agentctl", "work", "duos", "--containment", "--yolo"]);
+        let result = Cli::try_parse_from(["kata", "work", "duos", "--containment", "--yolo"]);
 
         assert!(result.is_err());
     }
 
     #[test]
     fn containment_up_command_parses() {
-        let cli = Cli::try_parse_from(["agentctl", "containment", "up"]).unwrap();
+        let cli = Cli::try_parse_from(["kata", "containment", "up"]).unwrap();
 
         assert!(matches!(
             cli.command,
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn containment_down_command_parses() {
-        let cli = Cli::try_parse_from(["agentctl", "containment", "down"]).unwrap();
+        let cli = Cli::try_parse_from(["kata", "containment", "down"]).unwrap();
 
         assert!(matches!(
             cli.command,
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn make_worktree_command_parses_branch() {
-        let cli = Cli::try_parse_from(["agentctl", "make", "worktree", "feat/new-branch"]).unwrap();
+        let cli = Cli::try_parse_from(["kata", "make", "worktree", "feat/new-branch"]).unwrap();
 
         match cli.command {
             Commands::Make { command } => match command {

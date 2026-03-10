@@ -9,7 +9,7 @@ use crate::core::project::get_project_root;
 use crate::db::migration::Migrator;
 
 fn project_database_path() -> Option<PathBuf> {
-    get_project_root().map(|root| root.join(".agents/.agentctl/database.db"))
+    get_project_root().map(|root| root.join(".agents/.agentkata/database.db"))
 }
 
 /// # Errors
@@ -18,7 +18,7 @@ fn project_database_path() -> Option<PathBuf> {
 /// or migrations fail.
 pub async fn connect() -> Result<DatabaseConnection> {
     let db_path = project_database_path()
-        .ok_or_else(|| anyhow!("project root not found; run `agentctl init` first"))?;
+        .ok_or_else(|| anyhow!("project root not found; run `kata init` first"))?;
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("failed to create DB directory: {}", parent.display()))?;

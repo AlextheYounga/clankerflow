@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
     let src = Path::new(&manifest_dir).join("runtime/src");
-    let dst = Path::new(&manifest_dir).join("src/kit/.agentctl/lib/src");
+    let dst = Path::new(&manifest_dir).join("src/kit/.agentkata/lib/src");
 
     copy_dir_all(&src, &dst)?;
 

@@ -21,9 +21,9 @@ pub async fn spawn_container_runner(
     port: u16,
 ) -> Result<Child> {
     let container_id = Docker::ensure_running(project_root, codebase_id).await?;
-    let runner_path = "/workspace/.agents/.agentctl/lib/src/runner.ts";
+    let runner_path = "/workspace/.agents/.agentkata/lib/src/runner.ts";
     let tsconfig_path = "/workspace/.agents/tsconfig.json";
-    let tsx_bin = "/workspace/.agents/.agentctl/lib/node_modules/.bin/tsx";
+    let tsx_bin = "/workspace/.agents/.agentkata/lib/node_modules/.bin/tsx";
 
     Command::new("docker")
         .args(["exec"])
@@ -57,12 +57,12 @@ pub fn spawn_host_runner(project_root: &Path, port: u16) -> Result<Child> {
 
 #[must_use]
 fn tsx_bin_path(project_root: &Path) -> PathBuf {
-    project_root.join(".agents/.agentctl/lib/node_modules/.bin/tsx")
+    project_root.join(".agents/.agentkata/lib/node_modules/.bin/tsx")
 }
 
 #[must_use]
 fn runner_ts_path(project_root: &Path) -> PathBuf {
-    project_root.join(".agents/.agentctl/lib/src/runner.ts")
+    project_root.join(".agents/.agentkata/lib/src/runner.ts")
 }
 
 #[cfg(test)]

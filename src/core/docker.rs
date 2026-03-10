@@ -128,7 +128,7 @@ impl Docker {
 }
 
 fn compose_file_path(project_root: &Path) -> PathBuf {
-    project_root.join(".agents/.agentctl/docker/agent.docker-compose.yaml")
+    project_root.join(".agents/.agentkata/docker/agent.docker-compose.yaml")
 }
 
 fn compose_args(project_root: &Path) -> Vec<String> {
@@ -167,7 +167,7 @@ mod tests {
 
         assert_eq!(
             path,
-            PathBuf::from("/home/user/project/.agents/.agentctl/docker/agent.docker-compose.yaml")
+            PathBuf::from("/home/user/project/.agents/.agentkata/docker/agent.docker-compose.yaml")
         );
     }
 

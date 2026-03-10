@@ -4,11 +4,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-import { createTicketContext } from "../src/helpers/tickets/index.ts";
+import { createTicketContext } from "../src/helpers/tickets.ts";
 
 test("TicketContext: CRUD operations", async (t) => {
   const tmpDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "agentctl-ticket-test-")
+    path.join(os.tmpdir(), "agentkata-ticket-test-")
   );
   const ticketsDir = path.join(tmpDir, ".agents", "tickets");
   await fs.mkdir(ticketsDir, { recursive: true });

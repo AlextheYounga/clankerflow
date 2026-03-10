@@ -1,5 +1,5 @@
-import type { WorkflowMeta, WorkflowContext, Ticket } from "agentctl";
-import { fs, tickets } from "agentctl/helpers";
+import type { WorkflowMeta, WorkflowContext, Ticket } from "agentkata";
+import { fs, tickets } from "agentkata/helpers";
 
 export const meta: WorkflowMeta = {
   id: "pair",
