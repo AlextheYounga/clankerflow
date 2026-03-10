@@ -21,6 +21,12 @@ fn copy_kit_into(project_root: &Path, _is_reinit: bool) -> anyhow::Result<()> {
 
     for path in Kit::iter() {
         let rel: &str = &path;
+
+        // opencode.json is placed separately via place_opencode_config.
+        if rel == "opencode.json" {
+            continue;
+        }
+
         let dest = agents_dir.join(rel);
 
         if let Some(parent) = dest.parent() {
@@ -40,6 +46,28 @@ fn copy_kit_into(project_root: &Path, _is_reinit: bool) -> anyhow::Result<()> {
         fs::create_dir_all(parent)?;
     }
     fs::write(&gitignore_dest, file.data)?;
+
+    Ok(())
+}
+
+/// Write the embedded `opencode.json` to `<project_root>/.opencode/opencode.json`.
+/// Skips if the file already exists (idempotent).
+///
+/// # Errors
+/// Returns an error if the directory cannot be created or the file cannot be written.
+pub fn place_opencode_config(project_root: &Path) -> anyhow::Result<()> {
+    let dest = project_root.join(".opencode/opencode.json");
+    if dest.exists() {
+        return Ok(());
+    }
+
+    let file = Kit::get("opencode.json")
+        .ok_or_else(|| anyhow::anyhow!("embedded asset 'opencode.json' is missing"))?;
+
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&dest, file.data)?;
 
     Ok(())
 }
@@ -96,5 +124,39 @@ mod tests {
 
         let gitignore = fs::read_to_string(gitignore_path).unwrap();
         assert_ne!(gitignore.trim(), "custom-ignore");
+    }
+
+    #[test]
+    fn copy_kit_excludes_opencode_json_from_agents_dir() {
+        let dir = TempDir::new().unwrap();
+
+        copy_kit_into(dir.path(), false).unwrap();
+
+        assert!(!dir.path().join(".agents/opencode.json").exists());
+    }
+
+    #[test]
+    fn place_opencode_config_writes_file_on_fresh_init() {
+        let dir = TempDir::new().unwrap();
+
+        place_opencode_config(dir.path()).unwrap();
+
+        let dest = dir.path().join(".opencode/opencode.json");
+        assert!(dest.exists());
+        let content = fs::read_to_string(dest).unwrap();
+        assert!(content.contains("opencode.ai"));
+    }
+
+    #[test]
+    fn place_opencode_config_skips_if_already_exists() {
+        let dir = TempDir::new().unwrap();
+        let dest = dir.path().join(".opencode/opencode.json");
+        fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        fs::write(&dest, "custom config").unwrap();
+
+        place_opencode_config(dir.path()).unwrap();
+
+        let content = fs::read_to_string(dest).unwrap();
+        assert_eq!(content, "custom config");
     }
 }

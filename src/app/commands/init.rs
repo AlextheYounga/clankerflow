@@ -5,7 +5,7 @@ use std::path::Path;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 
-use crate::core::embeds::copy_kit;
+use crate::core::embeds::{copy_kit, place_opencode_config};
 use crate::core::settings::Settings;
 use crate::db::connection::connect;
 
@@ -23,6 +23,9 @@ pub async fn run() -> anyhow::Result<()> {
 
     // Copy kit files into .agents/
     copy_kit(&project_root, is_reinit)?;
+
+    // Place .opencode/opencode.json for project-local OpenCode config.
+    place_opencode_config(&project_root)?;
 
     // Ensure settings always have a codebase_id, including after re-init.
     stamp_codebase_id(&project_root)?;
@@ -79,7 +82,6 @@ fn codebase_id_for(project_root: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::embeds::copy_kit;
     use crate::core::settings::Settings;
     use tempfile::TempDir;
 
@@ -129,5 +131,15 @@ mod tests {
 
         let updated = Settings::load(dir.path()).unwrap();
         assert_eq!(updated.codebase_id, "existing-id");
+    }
+
+    #[test]
+    fn init_places_opencode_config_at_project_root() {
+        let dir = TempDir::new().unwrap();
+        copy_kit(dir.path(), false).unwrap();
+
+        place_opencode_config(dir.path()).unwrap();
+
+        assert!(dir.path().join(".opencode/opencode.json").exists());
     }
 }
