@@ -118,7 +118,11 @@ async fn spawn_runner(
 
     let (stream, _) = timeout(Duration::from_secs(30), listener.accept())
         .await
-        .map_err(|_| anyhow!("timed out waiting for runner to connect (is Docker running and the image built?)"))?
+        .map_err(|_| {
+            anyhow!(
+                "timed out waiting for runner to connect (is Docker running and the image built?)"
+            )
+        })?
         .map_err(|e| anyhow!("failed to accept runner connection: {e}"))?;
 
     Ok(NodeRunner {

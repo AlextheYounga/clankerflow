@@ -1,5 +1,2 @@
-.agentctl/database.sqlite
-.agentctl/docker
-.agentctl/frontend
-logs
+.agentctl
 .worktrees

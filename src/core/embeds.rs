@@ -38,14 +38,7 @@ fn copy_kit_into(project_root: &Path, _is_reinit: bool) -> anyhow::Result<()> {
         fs::write(&dest, file.data)?;
     }
 
-    // Always write `.agents/.gitignore` from the embedded `gitignore.example`.
-    let gitignore_dest = agents_dir.join(".gitignore");
-    let file = Kit::get("gitignore.example")
-        .ok_or_else(|| anyhow::anyhow!("embedded asset 'gitignore.example' is missing"))?;
-    if let Some(parent) = gitignore_dest.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(&gitignore_dest, file.data)?;
+    enable_gitignore(&agents_dir);
 
     Ok(())
 }
@@ -70,6 +63,17 @@ pub fn place_opencode_config(project_root: &Path) -> anyhow::Result<()> {
     fs::write(&dest, file.data)?;
 
     Ok(())
+}
+
+fn enable_gitignore(agents_dir: &Path) {
+    let sample_gitignore = agents_dir.join("gitignore.example");
+    let target_path = agents_dir.join(".gitignore");
+
+    if sample_gitignore.exists() {
+        fs::rename(sample_gitignore, target_path).unwrap_or_else(|e| {
+            eprintln!("Failed to rename gitignore: {e}");
+        });
+    }
 }
 
 #[cfg(test)]

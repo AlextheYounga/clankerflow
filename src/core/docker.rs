@@ -1,9 +1,10 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 use anyhow::{Result, anyhow};
-use tokio::process::Command;
+use tokio::process::Command as AsyncCommand;
 
 pub struct Docker;
 
@@ -11,10 +12,10 @@ impl Docker {
     /// Returns `true` if `docker compose` is available on `PATH`.
     #[must_use]
     pub fn is_available() -> bool {
-        std::process::Command::new("docker")
+        Command::new("docker")
             .args(["compose", "version"])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()
             .is_ok_and(|s| s.success())
     }
@@ -139,8 +140,8 @@ fn compose_args(project_root: &Path) -> Vec<String> {
     ]
 }
 
-fn compose_command(project_root: &Path) -> Command {
-    let mut cmd = Command::new("docker");
+fn compose_command(project_root: &Path) -> AsyncCommand {
+    let mut cmd = AsyncCommand::new("docker");
     cmd.args(["compose"]);
     cmd.args(compose_args(project_root));
     cmd
