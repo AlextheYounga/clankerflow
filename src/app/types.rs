@@ -26,3 +26,11 @@ pub enum MakeCommands {
         branch: String,
     },
 }
+
+#[derive(Debug, Subcommand)]
+pub enum ContainmentCommands {
+    /// Build and start the agent container
+    Up,
+    /// Stop and remove the agent container
+    Down,
+}

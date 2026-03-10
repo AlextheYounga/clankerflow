@@ -78,8 +78,8 @@ async fn spawn_runner(project_root: &Path, env: RuntimeEnv, codebase_id: &str) -
     let port = listener.local_addr()?.port();
 
     let child = match env {
-        RuntimeEnv::Host => spawn_host_node(project_root, port)?,
-        RuntimeEnv::Container => spawn_container_node(project_root, codebase_id, port).await?,
+        RuntimeEnv::Host => spawn_host_runner(project_root, port)?,
+        RuntimeEnv::Container => spawn_container_runner(project_root, codebase_id, port).await?,
     };
 
     let (stream, _) = listener.accept().await?;
@@ -88,10 +88,10 @@ async fn spawn_runner(project_root: &Path, env: RuntimeEnv, codebase_id: &str) -
 }
 ```
 
-- `spawn_host_node()`: spawns `node runner.js` directly with
+- `spawn_host_runner()`: spawns `node runner.js` directly with
   `AGENTCTL_IPC_PORT=<port>`. No `NODE_CHANNEL_FD`, no `pre_exec`, no
   socketpair.
-- `spawn_container_node()`: ensures container is running, then spawns
+- `spawn_container_runner()`: ensures container is running, then spawns
   `docker exec -e AGENTCTL_IPC_PORT=<port> <container_id> node /workspace/.agents/.agentctl/lib/runner.js`.
   The port is accessible because the docker-compose port mapping makes it
   available inside the container.
@@ -358,7 +358,7 @@ When `env == RuntimeEnv::Container`:
 6. Proceed with the normal IPC loop — identical from this point on.
 
 ```rust
-fn spawn_container_node(
+fn spawn_container_runner(
     project_root: &Path,
     codebase_id: &str,
     port: u16,
@@ -393,7 +393,7 @@ user's terminal. IPC is on the separate TCP channel — no mixing.
 
 - `src/core.rs` — export `docker` module.
 - `src/core/runner.rs` — replace socketpair with TCP listener/accept; add
-  `spawn_container_node()`; remove `make_socketpair()`; update `NodeRunner` to
+  `spawn_container_runner()`; remove `make_socketpair()`; update `NodeRunner` to
   use `TcpStream`; pass `RuntimeEnv` and `codebase_id` through to
   `spawn_runner()`.
 - `src/app/cli.rs` — add `--containment` flag on `work`; add `Containment`

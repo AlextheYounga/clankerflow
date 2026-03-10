@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -83,17 +84,35 @@ async function runRunnerSequence(
   runId: number,
 ): Promise<IpcMessage[]> {
   const runnerPath = path.join(dirname, "../src/runner.ts");
+
+  const server = net.createServer();
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address() as net.AddressInfo;
+  const port = address.port;
+
   const child = spawn("node", [runnerPath], {
     cwd: path.join(dirname, ".."),
-    stdio: ["ignore", "pipe", "pipe", "ipc"],
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, AGENTCTL_IPC_PORT: String(port) },
   });
   const closePromise = once(child, "close");
 
+  const [socket] = (await once(server, "connection")) as [net.Socket];
+
   const events: IpcMessage[] = [];
-  child.on("message", (raw: unknown) => {
-    const message = raw as IpcMessage;
-    if (message.kind === "event") {
-      events.push(message);
+  let buffer = "";
+  socket.on("data", (chunk) => {
+    buffer += chunk.toString();
+    const lines = buffer.split("\n");
+    buffer = lines.pop()!;
+    for (const line of lines) {
+      if (line.trim()) {
+        const message = JSON.parse(line) as IpcMessage;
+        if (message.kind === "event") {
+          events.push(message);
+        }
+      }
     }
   });
 
@@ -104,7 +123,7 @@ async function runRunnerSequence(
   });
 
   for (const message of commands) {
-    child.send(message);
+    socket.write(JSON.stringify(message) + "\n");
     await delay(20);
   }
 
@@ -115,11 +134,12 @@ async function runRunnerSequence(
     ),
   );
 
-  child.send(command("shutdown", "shutdown", { reason: "test_complete" }));
+  socket.write(
+    JSON.stringify(
+      command("shutdown", "shutdown", { reason: "test_complete" }),
+    ) + "\n",
+  );
   await delay(20);
-  if (child.connected === true) {
-    child.disconnect();
-  }
 
   let timeoutHandle: NodeJS.Timeout | undefined;
   const closeResult = await Promise.race([
@@ -134,6 +154,9 @@ async function runRunnerSequence(
   if (timeoutHandle !== undefined) {
     clearTimeout(timeoutHandle);
   }
+
+  socket.destroy();
+  server.close();
 
   const [exitCode] = closeResult as [number];
   assert.equal(exitCode, 0);

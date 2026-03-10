@@ -22,8 +22,9 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
         project_root: &project_root,
         workflow_name: &name,
         workflow_path: &workflow_path,
-        env: env.as_str(),
+        env,
         yolo,
+        codebase_id: &settings.codebase_id,
     };
 
     let final_status = run_workflow(&args).await?;

@@ -1,3 +1,5 @@
+import net from "net";
+
 import {
   parseIpcMessage,
   type IpcMessage,
@@ -13,31 +15,42 @@ interface PendingRequest {
 }
 
 export class IpcTransport {
+  private socket: net.Socket | null = null;
   private messageHandler: ((message: IpcMessage) => void) | null = null;
   private disconnectHandler: (() => void | Promise<void>) | null = null;
-  private readonly proc: NodeJS.Process;
-
-  constructor(proc: NodeJS.Process = process) {
-    this.proc = proc;
-  }
 
   start(): void {
-    this.proc.on("message", (raw: unknown) => {
-      try {
-        const message = parseIpcMessage(raw);
-        this.messageHandler?.(message);
-      } catch (error) {
-        this.send({
-          v: "v1",
-          id: `err_${Date.now()}`,
-          kind: "error",
-          name: "ipc_parse_error",
-          payload: { message: errorMessage(error) },
-        });
+    const port = Number.parseInt(process.env.AGENTCTL_IPC_PORT!, 10);
+    const host = process.env.AGENTCTL_CONTAINER === "1"
+      ? "host.docker.internal"
+      : "127.0.0.1";
+
+    this.socket = net.createConnection({ host, port });
+
+    let buffer = "";
+    this.socket.on("data", (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split("\n");
+      buffer = lines.pop()!;
+      for (const line of lines) {
+        if (line.trim()) {
+          try {
+            const message = parseIpcMessage(JSON.parse(line));
+            this.messageHandler?.(message);
+          } catch (error) {
+            this.send({
+              v: "v1",
+              id: `err_${Date.now()}`,
+              kind: "error",
+              name: "ipc_parse_error",
+              payload: { message: errorMessage(error) },
+            });
+          }
+        }
       }
     });
 
-    this.proc.on("disconnect", () => {
+    this.socket.on("close", () => {
       void this.disconnectHandler?.();
     });
   }
@@ -51,11 +64,11 @@ export class IpcTransport {
   }
 
   send(message: IpcMessage): void {
-    if (typeof this.proc.send !== "function" || this.proc.connected !== true) {
+    if (this.socket === null || this.socket.destroyed) {
       return;
     }
 
-    this.proc.send(message, (error: Error | null) => {
+    this.socket.write(JSON.stringify(message) + "\n", (error) => {
       if (error) {
         process.stderr.write(`ipc send error: ${errorMessage(error)}\n`);
       }

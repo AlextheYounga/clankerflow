@@ -1,4 +1,5 @@
 pub mod capabilities;
+pub mod docker;
 pub mod embeds;
 pub mod ipc;
 pub mod opencode;

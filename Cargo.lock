@@ -17,7 +17,6 @@ dependencies = [
  "base64",
  "chrono",
  "clap",
- "libc",
  "mockito",
  "open",
  "rust-embed",
