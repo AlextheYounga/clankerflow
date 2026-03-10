@@ -88,7 +88,7 @@ mod tests {
         copy_kit_into(dir.path(), false).unwrap();
 
         assert!(dir.path().join(".agents/settings.json").exists());
-        assert!(dir.path().join(".agents/workflows/default.js").exists());
+        assert!(dir.path().join(".agents/workflows/default.ts").exists());
         assert!(dir.path().join(".agents/.gitignore").exists());
     }
 
@@ -109,7 +109,7 @@ mod tests {
     fn reinit_restores_missing_scaffold_files() {
         let dir = TempDir::new().unwrap();
         copy_kit_into(dir.path(), false).unwrap();
-        let workflow_path = dir.path().join(".agents/workflows/default.js");
+        let workflow_path = dir.path().join(".agents/workflows/default.ts");
         fs::remove_file(&workflow_path).unwrap();
 
         copy_kit_into(dir.path(), true).unwrap();

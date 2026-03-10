@@ -1,6 +1,7 @@
 use std::env;
 use std::io::{self, Write};
 use std::path::Path;
+use std::process::Command;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
@@ -24,6 +25,9 @@ pub async fn run() -> anyhow::Result<()> {
     // Copy kit files into .agents/
     copy_kit(&project_root, is_reinit)?;
 
+    // Install Node dependencies for the workflow runtime.
+    npm_install(&project_root)?;
+
     // Place .opencode/opencode.json for project-local OpenCode config.
     place_opencode_config(&project_root)?;
 
@@ -42,6 +46,20 @@ pub async fn run() -> anyhow::Result<()> {
         println!("  .agents/workflows/       put your workflows here");
         println!();
         println!("Next: edit .agents/settings.json, then run `agentctl work <name>`.");
+    }
+
+    Ok(())
+}
+
+fn npm_install(project_root: &Path) -> anyhow::Result<()> {
+    let lib_dir = project_root.join(".agents/.agentctl/lib");
+    let status = Command::new("npm")
+        .args(["install", "--prefix", lib_dir.to_str().unwrap_or(".")])
+        .status()
+        .map_err(|e| anyhow::anyhow!("failed to run npm install: {e}"))?;
+
+    if !status.success() {
+        anyhow::bail!("npm install failed in {}", lib_dir.display());
     }
 
     Ok(())

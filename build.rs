@@ -1,69 +1,34 @@
 use std::env;
 use std::error::Error;
-use std::process::Command;
-
-const NODE_EXTERNALS: &[&str] = &[
-    "fs",
-    "path",
-    "child_process",
-    "readline",
-    "util",
-    "os",
-    "events",
-    "crypto",
-    "node:*",
-];
+use std::fs;
+use std::path::Path;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=runtime/src");
-    println!("cargo:rerun-if-changed=runtime/package.json");
-    println!("cargo:rerun-if-changed=runtime/package-lock.json");
 
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
-    bundle_ts(
-        &manifest_dir,
-        "runtime/src/runner.ts",
-        "src/kit/.agentctl/lib/runner.js",
-    )?;
-    bundle_ts(
-        &manifest_dir,
-        "runtime/src/helpers.ts",
-        "src/kit/.agentctl/lib/helpers.js",
-    )?;
+    let src = Path::new(&manifest_dir).join("runtime/src");
+    let dst = Path::new(&manifest_dir).join("src/kit/.agentctl/lib/src");
+
+    copy_dir_all(&src, &dst)?;
 
     Ok(())
 }
 
-fn bundle_ts(manifest_dir: &str, entry: &str, output: &str) -> Result<(), Box<dyn Error>> {
-    let entry_path = format!("{manifest_dir}/{entry}");
-    let output_path = format!("{manifest_dir}/{output}");
-    let runtime_prefix = format!("{manifest_dir}/runtime");
+// Recursively copy all files from src into dst, creating directories as needed.
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), Box<dyn Error>> {
+    fs::create_dir_all(dst)?;
 
-    let mut args = vec![
-        "--prefix".to_string(),
-        runtime_prefix,
-        "esbuild".to_string(),
-        entry_path,
-        "--bundle".to_string(),
-        "--platform=node".to_string(),
-        "--format=esm".to_string(),
-        "--target=node22".to_string(),
-        "--banner:js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);".to_string(),
-        format!("--outfile={output_path}"),
-    ];
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
 
-    for module in NODE_EXTERNALS {
-        args.push(format!("--external:{module}"));
-    }
-
-    let status = Command::new("npx").args(&args).status().map_err(|e| {
-        format!(
-            "failed to run esbuild for {entry}: {e}; ensure `npm install` has been run in runtime/"
-        )
-    })?;
-
-    if !status.success() {
-        return Err(format!("esbuild failed for {entry}").into());
+        if src_path.is_dir() {
+            copy_dir_all(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
     }
 
     Ok(())

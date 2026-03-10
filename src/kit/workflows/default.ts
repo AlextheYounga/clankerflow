@@ -1,20 +1,17 @@
-import { tickets } from "../.agentctl/lib/helpers.js";
+import type { WorkflowMeta, WorkflowContext } from "agentctl";
+import { tickets } from "agentctl/helpers";
 
-export const meta = {
+export const meta: WorkflowMeta = {
   id: "default",
   name: "Default Workflow",
   description: "Process the next open ticket",
   runtime: "host",
 };
 
-export default async function defaultWorkflow(ctx) {
+export default async function defaultWorkflow(ctx: WorkflowContext) {
   const next = await tickets.getNext({ status: "OPEN" });
 
-  if (!next.ok) {
-    console.log('No more tickets to process.');
-  }
-
-  if (!next.ticket) {
+  if (!next?.ticket) {
     ctx.log.info("No open tickets found");
     return { ok: true, skipped: true };
   }
@@ -22,11 +19,18 @@ export default async function defaultWorkflow(ctx) {
   const ticket = next.ticket;
   ctx.log.info(`Processing ticket ${ticket.ticketId}: ${ticket.title}`);
 
-  (await tickets.updateStatus({
+  const updateResult = await tickets.updateStatus({
     id: ticket.ticketId,
     status: "IN_PROGRESS",
-  }),
-    `Update ticket ${ticket.ticketId} to IN_PROGRESS`);
+  });
+
+  if (!updateResult.ok) {
+    throw new Error(
+      `Failed to update ticket ${ticket.ticketId} to IN_PROGRESS: ${updateResult.error}`,
+    );
+  }
+
+  ctx.log.info(`Update ticket ${ticket.ticketId} to IN_PROGRESS`);
 
   const result = await ctx.agent.run({
     title: `Work on: ${ticket.title}`,

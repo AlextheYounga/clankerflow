@@ -51,12 +51,10 @@ fn print_summary(name: &str, status: &RunStatus) {
 fn resolve_workflow(project_root: &Path, name: &str) -> anyhow::Result<PathBuf> {
     validate_workflow_name(name)?;
     let workflows_dir = project_root.join(".agents").join("workflows");
+    let candidate = workflows_dir.join(format!("{name}.ts"));
 
-    for ext in ["js", "ts"] {
-        let candidate = workflows_dir.join(format!("{name}.{ext}"));
-        if candidate.exists() {
-            return Ok(candidate);
-        }
+    if candidate.exists() {
+        return Ok(candidate);
     }
 
     anyhow::bail!(
@@ -90,42 +88,21 @@ mod tests {
         dir
     }
 
-    fn write_workflow(project_root: &Path, name: &str, ext: &str) {
+    fn write_workflow(project_root: &Path, name: &str) {
         let path = project_root
             .join(".agents/workflows")
-            .join(format!("{name}.{ext}"));
+            .join(format!("{name}.ts"));
         fs::write(path, "export default async () => {};").unwrap();
     }
 
     #[test]
-    fn resolves_js_workflow() {
+    fn resolves_ts_workflow() {
         let dir = setup();
-        write_workflow(dir.path(), "duos", "js");
-
-        let resolved = resolve_workflow(dir.path(), "duos").unwrap();
-
-        assert_eq!(resolved, dir.path().join(".agents/workflows/duos.js"));
-    }
-
-    #[test]
-    fn resolves_ts_workflow_when_js_missing() {
-        let dir = setup();
-        write_workflow(dir.path(), "duos", "ts");
+        write_workflow(dir.path(), "duos");
 
         let resolved = resolve_workflow(dir.path(), "duos").unwrap();
 
         assert_eq!(resolved, dir.path().join(".agents/workflows/duos.ts"));
-    }
-
-    #[test]
-    fn prefers_js_when_js_and_ts_exist() {
-        let dir = setup();
-        write_workflow(dir.path(), "duos", "js");
-        write_workflow(dir.path(), "duos", "ts");
-
-        let resolved = resolve_workflow(dir.path(), "duos").unwrap();
-
-        assert_eq!(resolved, dir.path().join(".agents/workflows/duos.js"));
     }
 
     #[test]

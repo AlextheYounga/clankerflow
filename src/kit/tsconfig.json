@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "agentctl": ["./.agentctl/lib/types/agentctl.d.ts"],
+      "agentctl/helpers": ["./.agentctl/lib/src/helpers.ts"]
+    }
+  },
+  "include": ["workflows/**/*.ts"]
+}

@@ -6,7 +6,6 @@ use tokio::process::{Child, Command};
 
 use crate::app::types::RuntimeEnv;
 use crate::core::docker::Docker;
-use crate::core::runtime::resolve_node_bin;
 use crate::db::entities::workflow_run::WorkflowEnv;
 
 pub fn parse_runtime_env(env: RuntimeEnv) -> WorkflowEnv {
@@ -22,14 +21,16 @@ pub async fn spawn_container_runner(
     port: u16,
 ) -> Result<Child> {
     let container_id = Docker::ensure_running(project_root, codebase_id).await?;
-    let runner_path = "/workspace/.agents/.agentctl/lib/runner.js";
+    let runner_path = "/workspace/.agents/.agentctl/lib/src/runner.ts";
+    let tsconfig_path = "/workspace/.agents/tsconfig.json";
+    let tsx_bin = "/workspace/.agents/.agentctl/lib/node_modules/.bin/tsx";
 
     Command::new("docker")
         .args(["exec"])
         .args(["-e", &format!("AGENTCTL_IPC_PORT={port}")])
         .args(["-e", "AGENTCTL_CONTAINER=1"])
         .arg(&container_id)
-        .args(["node", runner_path])
+        .args([tsx_bin, "--tsconfig", tsconfig_path, runner_path])
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -38,10 +39,12 @@ pub async fn spawn_container_runner(
 }
 
 pub fn spawn_host_runner(project_root: &Path, port: u16) -> Result<Child> {
-    let node_bin = resolve_node_bin()?;
-    let runner_path = js_path(project_root);
+    let tsx_bin = tsx_bin_path(project_root);
+    let runner_path = runner_ts_path(project_root);
+    let tsconfig_path = project_root.join(".agents/tsconfig.json");
 
-    Command::new(node_bin)
+    Command::new(tsx_bin)
+        .args(["--tsconfig", tsconfig_path.to_str().unwrap_or(".")])
         .arg(runner_path)
         .current_dir(project_root)
         .env("AGENTCTL_IPC_PORT", port.to_string())
@@ -49,12 +52,17 @@ pub fn spawn_host_runner(project_root: &Path, port: u16) -> Result<Child> {
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .spawn()
-        .map_err(|e| anyhow!("failed to spawn Node runtime: {e}"))
+        .map_err(|e| anyhow!("failed to spawn tsx runtime: {e}"))
 }
 
 #[must_use]
-fn js_path(project_root: &Path) -> PathBuf {
-    project_root.join(".agents/.agentctl/lib/runner.js")
+fn tsx_bin_path(project_root: &Path) -> PathBuf {
+    project_root.join(".agents/.agentctl/lib/node_modules/.bin/tsx")
+}
+
+#[must_use]
+fn runner_ts_path(project_root: &Path) -> PathBuf {
+    project_root.join(".agents/.agentctl/lib/src/runner.ts")
 }
 
 #[cfg(test)]
