@@ -1,24 +1,31 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use sea_orm::{Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;
 
-use crate::core::project::get_project_root;
 use crate::db::migration::Migrator;
 
-fn project_database_path() -> Option<PathBuf> {
-    get_project_root().map(|root| root.join(".agents/.agentkata/database.db"))
+fn database_path(project_root: &Path) -> PathBuf {
+    project_root.join(".agents/.agentkata/database.db")
 }
 
 /// # Errors
-/// Returns an error if the project root cannot be determined, the database
-/// directory or file cannot be created, the connection cannot be established,
-/// or migrations fail.
-pub async fn connect() -> Result<DatabaseConnection> {
-    let db_path = project_database_path()
-        .ok_or_else(|| anyhow!("project root not found; run `kata init` first"))?;
+/// Returns an error if migrations fail.
+pub async fn migrate(conn: &DatabaseConnection) -> Result<()> {
+    Migrator::up(conn, None)
+        .await
+        .context("failed to run migrations")?;
+    Ok(())
+}
+
+/// # Errors
+/// Returns an error if the database directory or file cannot be created, or the
+/// connection cannot be established.
+pub async fn connect(project_root: &Path) -> Result<DatabaseConnection> {
+    let db_path = database_path(project_root);
+
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("failed to create DB directory: {}", parent.display()))?;
@@ -31,8 +38,6 @@ pub async fn connect() -> Result<DatabaseConnection> {
     let conn = Database::connect(&db_url)
         .await
         .context("failed to connect to database")?;
-    Migrator::up(&conn, None)
-        .await
-        .context("failed to run migrations")?;
+    migrate(&conn).await?;
     Ok(conn)
 }

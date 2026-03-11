@@ -28,7 +28,7 @@ pub async fn run() -> anyhow::Result<()> {
     place_opencode_config(&project_root)?;
 
     // Initialize the database (creates + migrates)
-    connect().await.map_err(|e| anyhow::anyhow!("{e}"))?;
+    connect(&project_root).await?;
 
     if is_reinit {
         println!("Kit refreshed successfully.");

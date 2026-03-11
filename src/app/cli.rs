@@ -42,32 +42,36 @@ pub enum Commands {
     },
 }
 
-/// # Errors
-/// Returns an error if the dispatched subcommand fails.
-pub async fn run(cli: Cli) -> anyhow::Result<()> {
-    match cli.command {
-        Commands::Init => commands::init::run().await,
-        Commands::Work {
-            name,
-            env,
-            yolo,
-            containment,
-        } => {
-            let (effective_env, effective_yolo) = resolve_work_flags(env, yolo, containment)?;
-            commands::work::run(name, effective_env, effective_yolo).await
+impl Cli {
+    /// # Errors
+    /// Returns an error if the dispatched subcommand fails.
+    pub async fn run(self) -> anyhow::Result<()> {
+        match self.command {
+            Commands::Init => commands::init::run().await,
+            Commands::Work {
+                name,
+                env,
+                yolo,
+                containment,
+            } => {
+                let (effective_env, effective_yolo) = resolve_work_flags(env, yolo, containment)?;
+                commands::work::run(name, effective_env, effective_yolo).await
+            }
+            Commands::Manage => commands::manage::run(),
+            Commands::Make { command } => match command {
+                MakeCommands::Ticket => commands::make::ticket(),
+                MakeCommands::Worktree { branch } => commands::make::worktree(&branch),
+            },
+            Commands::Containment { command } => match command {
+                ContainmentCommands::Up => commands::containment::up().await,
+                ContainmentCommands::Down => commands::containment::down().await,
+            },
         }
-        Commands::Manage => commands::manage::run(),
-        Commands::Make { command } => match command {
-            MakeCommands::Ticket => commands::make::ticket(),
-            MakeCommands::Worktree { branch } => commands::make::worktree(&branch),
-        },
-        Commands::Containment { command } => match command {
-            ContainmentCommands::Up => commands::containment::up().await,
-            ContainmentCommands::Down => commands::containment::down().await,
-        },
     }
 }
 
+// This is to account for the --containment flag which is a shorthand for --env container + --yolo.
+// We can't express this logic purely via clap attributes, so we have to resolve it manually here.
 fn resolve_work_flags(
     env: RuntimeEnv,
     yolo: bool,
@@ -167,7 +171,7 @@ mod tests {
         assert!(matches!(
             cli.command,
             Commands::Containment {
-                command: ContainmentCommands::Up
+                command: ContainmentCommands::Up,
             }
         ));
     }
@@ -179,7 +183,7 @@ mod tests {
         assert!(matches!(
             cli.command,
             Commands::Containment {
-                command: ContainmentCommands::Down
+                command: ContainmentCommands::Down,
             }
         ));
     }
