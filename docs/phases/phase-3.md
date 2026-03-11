@@ -48,7 +48,7 @@ command itself drives the entire lifecycle in a single process.
 
 ### Changed: `work.rs` drives the runtime directly
 
-`commands::work::run()` calls a function (e.g. `run_workflow`) that:
+`commands::work::run()` calls the runner entrypoint (`WorkflowRunner::run`) that:
 
 1. Creates DB records (workflow + run).
 2. Spawns Node directly (no intermediate detached process).
@@ -141,10 +141,10 @@ cancellation is now in-process via SIGINT rather than DB polling.
 - `src/app/cli.rs`
   - Remove the hidden `_run` command and its args.
 - `src/app/commands/work.rs`
-  - Replace `launch_workflow` call with direct `run_workflow` call that blocks.
+  - Replace `launch_workflow` call with direct `WorkflowRunner::run` call that blocks.
 - `src/core/daemon.rs` (or renamed)
   - Remove `launch_workflow` (the detach + re-exec function).
-  - Collapse `drive_workflow_runtime` into a simpler `run_workflow` that
+  - Collapse `drive_workflow_runtime` into a simpler `WorkflowRunner::run` that
     spawns Node, runs the IPC loop, and returns the final status.
   - Remove `detach_process` / `setsid` usage.
   - Add SIGINT handler wiring.

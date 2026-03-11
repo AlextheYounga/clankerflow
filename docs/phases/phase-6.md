@@ -73,7 +73,7 @@ The wire format is unchanged: newline-delimited JSON, same `Message` /
 Replace socketpair + fd 3 setup with TCP:
 
 ```rust
-async fn spawn_runner(project_root: &Path, env: RuntimeEnv, codebase_id: &str) -> Result<NodeRunner> {
+async fn spawn_runner(project_root: &Path, env: RuntimeEnv, codebase_id: &str) -> Result<WorkflowRunner> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
 
@@ -84,7 +84,7 @@ async fn spawn_runner(project_root: &Path, env: RuntimeEnv, codebase_id: &str) -
 
     let (stream, _) = listener.accept().await?;
 
-    Ok(NodeRunner { child, ipc: Some(stream) })
+    Ok(WorkflowRunner { child, ipc: Some(stream) })
 }
 ```
 
@@ -98,10 +98,10 @@ async fn spawn_runner(project_root: &Path, env: RuntimeEnv, codebase_id: &str) -
 
 Remove `make_socketpair()` entirely.
 
-#### `NodeRunner` struct
+#### `WorkflowRunner` struct
 
 ```rust
-struct NodeRunner {
+struct WorkflowRunner {
     child: Child,
     ipc: Option<TcpStream>,
 }
@@ -126,9 +126,9 @@ async fn drive_ipc_loop(ctx, ipc_write, ipc_read: tokio_io::ReadHalf<TcpStream>)
 
 Or make it generic over `AsyncRead + Unpin`. The body is unchanged.
 
-#### `run_workflow()` — `src/core/runner.rs`
+#### `WorkflowRunner::run()` — `src/core/runner.rs`
 
-Receives `RuntimeEnv` and `codebase_id` so it can pass them to `spawn_runner()`.
+Receives `RuntimeEnv` and `codebase_id` so it can pass them to the spawn helper.
 The rest of the function (setup_run, send_start_run, drive_ipc_loop,
 send_shutdown, wait_for_child) is unchanged.
 
@@ -393,7 +393,7 @@ user's terminal. IPC is on the separate TCP channel — no mixing.
 
 - `src/core.rs` — export `docker` module.
 - `src/core/runner.rs` — replace socketpair with TCP listener/accept; add
-  `spawn_container_runner()`; remove `make_socketpair()`; update `NodeRunner` to
+  `spawn_container_runner()`; remove `make_socketpair()`; update `WorkflowRunner` to
   use `TcpStream`; pass `RuntimeEnv` and `codebase_id` through to
   `spawn_runner()`.
 - `src/app/cli.rs` — add `--containment` flag on `work`; add `Containment`
@@ -417,7 +417,7 @@ All tests must be offline — no Docker daemon required.
   `compose_args()` builds correct argument vector. Docker command execution is
   not unit-tested (requires Docker daemon); covered by integration tests.
 - `src/core/runner.rs` — test TCP listener binds and accepts a connection
-  (localhost, no Docker); test that `NodeRunner` struct holds `TcpStream`
+  (localhost, no Docker); test that `WorkflowRunner` struct holds `TcpStream`
   correctly.
 - `src/app/cli.rs` — test `--containment` parses; test `--containment`
   conflicts with explicit `--env container` or `--yolo`; test `containment up`

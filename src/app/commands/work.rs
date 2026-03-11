@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::app::types::RuntimeEnv;
 use crate::core::project::require_project_root;
-use crate::core::runner::{WorkflowArgs, run_workflow};
+use crate::core::runner::{WorkflowArgs, WorkflowRunner};
 use crate::db::entities::workflow_run::RunStatus;
 
 /// # Errors
@@ -20,7 +20,7 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
         yolo,
     };
 
-    let final_status = run_workflow(&args).await?;
+    let final_status = WorkflowRunner::run(&args).await?;
     print_summary(&name, &final_status);
 
     if matches!(final_status, RunStatus::Failed) {

@@ -18,7 +18,7 @@ Legend: `[x]` done, `[ ]` not started, `[~]` partially done / stub exists.
 - [x] `OpencodeSettings` struct with optional `server_url` (default `http://127.0.0.1:4096`)
 - [x] `settings.json` template includes `opencode` block
 - [x] `agentctl work` drives the entire lifecycle in a single foreground process (no daemon)
-- [x] `src/core/runner.rs` — `run_workflow()` spawns Node, runs IPC loop, returns final status
+- [x] `src/core/runner.rs` — `WorkflowRunner::run()` spawns Node, runs IPC loop, returns final status
 - [x] `src/core/runner/protocol.rs` — `parse_capability_request_payload`, `write_message`, `send_cancel`, `send_shutdown`
 - [x] `src/core/runner/store.rs` — `upsert_workflow`, `create_run`, `set_status`, `append_run_event`
 - [x] `src/core/ipc.rs` — `IpcMessage` struct, `command()`, `response()`, `error_response()` constructors

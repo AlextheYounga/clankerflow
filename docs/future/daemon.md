@@ -132,7 +132,7 @@ In daemon mode, SIGINT handling on the `_run` worker is different:
 
 ## Migration Path
 
-The synchronous `run_workflow` function and the daemon's
+The synchronous `WorkflowRunner::run` entrypoint and the daemon's
 `drive_workflow_runtime` share the same core: spawn Node, run IPC loop, handle
 events and capabilities, update DB. The difference is only in:
 
@@ -150,7 +150,7 @@ the same loop.
 - `src/app/cli.rs` — add hidden `_run` command (~20 lines).
 - `src/core/daemon/process.rs` — `detach_process` + `wait_for_child` (~80 lines).
 - `src/core/daemon/store.rs` — `is_stop_requested` (~15 lines).
-- `src/app/commands/work.rs` — swap `run_workflow` for `launch_workflow` (~10 lines).
+- `src/app/commands/work.rs` — swap `WorkflowRunner::run` for `launch_workflow` (~10 lines).
 - New: `src/app/commands/stop.rs` — stop command (~40 lines).
 - DB migration for `stop_requested` column if needed.
 - Tests for detach, stop, and DB polling.

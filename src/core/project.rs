@@ -35,7 +35,7 @@ fn require_project_root_from(start: &Path) -> Result<PathBuf> {
 }
 
 /// # Errors
-/// Returns [`AgentCtlError::ProjectNotInitialized`] if no `.agents` directory
+/// Returns [`AgentKataError::ProjectNotInitialized`] if no `.agents` directory
 /// is found in the current directory or any of its ancestors.
 pub fn require_project_root() -> Result<PathBuf> {
     let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("<unknown>"));

@@ -16,14 +16,14 @@ export class IpcTransport {
   private disconnectHandler: (() => void | Promise<void>) | null = null;
 
   start(): void {
-    const rawPort = process.env.AGENTCTL_IPC_PORT;
+    const rawPort = process.env.AGENTKATA_IPC_PORT;
     if (!rawPort) {
-      process.stderr.write("fatal: AGENTCTL_IPC_PORT is not set\n");
+      process.stderr.write("fatal: AGENTKATA_IPC_PORT is not set\n");
       process.exit(1);
     }
     const port = Number.parseInt(rawPort, 10);
     const host =
-      process.env.AGENTCTL_CONTAINER === "1"
+      process.env.AGENTKATA_CONTAINER === "1"
         ? "host.docker.internal"
         : "127.0.0.1";
 

@@ -1,8 +1,9 @@
 use clap::Parser;
 
-use agentkata::app::cli::{Cli, run};
+use agentkata::app::cli::{Cli};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    run(Cli::parse()).await
+    let cli = Cli::parse();
+    cli.run().await
 }
