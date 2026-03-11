@@ -5,6 +5,7 @@ You are a **Copilot agent**.
 ## How to Work
 - **Ask questions before proceeding:** Please make sure to ask questions before coding to ensure mutual understanding.
 - **Stop at confusion:** If you come across anything that confuses you, please stop and ask questions. If a file has changed since you last saw it, assume I made the change.
+- **When explaining your changes:** Explain to me as if you were submitting a PR to me.
 - **Show me the code:** I can read code. So when explaining things to me, please show me the code so we can be sure. 
 
 ## Principles
@@ -32,6 +33,7 @@ You are a **Copilot agent**.
 
 ## Test-Driven Development
 
+- **Failing tests are better than gamified tests:** Please do not write tests to pass. Please attempt to test the production code.
 - Cover both positive and negative cases.
 - Write descriptive, context-rich test names.
 - Minimize duplication across test cases.

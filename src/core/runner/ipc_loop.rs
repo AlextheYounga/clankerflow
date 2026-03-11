@@ -82,7 +82,7 @@ pub async fn drive_ipc_loop(
     Ok(final_status)
 }
 
-async fn handle_runner_line(
+pub async fn handle_runner_line(
     ctx: &IpcLoopContext,
     line: &str,
 ) -> Result<(LoopControl, Option<RunStatus>)> {

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::{env, ffi::OsString};
 
 use anyhow::{Result, anyhow};
 use tokio::process::{Child, Command};
@@ -39,13 +40,20 @@ pub async fn spawn_container_runner(
 }
 
 pub fn spawn_host_runner(project_root: &Path, port: u16) -> Result<Child> {
-    let tsx_bin = tsx_bin_path(project_root);
-    let runner_path = runner_ts_path(project_root);
+    let executable = host_runner_executable(project_root);
+    let runner_path = runner_entry_path(project_root);
     let tsconfig_path = project_root.join(".agents/tsconfig.json");
 
-    Command::new(tsx_bin)
-        .args(["--tsconfig", tsconfig_path.to_str().unwrap_or(".")])
-        .arg(runner_path)
+    let mut command = Command::new(executable.program);
+    command.args(executable.args);
+
+    if let Some(runner_path) = runner_path {
+        command
+            .args(["--tsconfig", tsconfig_path.to_str().unwrap_or(".")])
+            .arg(runner_path);
+    }
+
+    command
         .current_dir(project_root)
         .env("AGENTKATA_IPC_PORT", port.to_string())
         .stdin(Stdio::null())
@@ -53,6 +61,33 @@ pub fn spawn_host_runner(project_root: &Path, port: u16) -> Result<Child> {
         .stderr(Stdio::inherit())
         .spawn()
         .map_err(|e| anyhow!("failed to spawn tsx runtime: {e}"))
+}
+
+struct HostRunnerExecutable {
+    program: OsString,
+    args: Vec<OsString>,
+}
+
+fn host_runner_executable(project_root: &Path) -> HostRunnerExecutable {
+    if let Ok(bundle_path) = env::var("AGENTKATA_HOST_RUNNER_BUNDLE") {
+        return HostRunnerExecutable {
+            program: OsString::from("node"),
+            args: vec![OsString::from(bundle_path)],
+        };
+    }
+
+    HostRunnerExecutable {
+        program: tsx_bin_path(project_root).into_os_string(),
+        args: Vec::new(),
+    }
+}
+
+fn runner_entry_path(project_root: &Path) -> Option<PathBuf> {
+    if env::var_os("AGENTKATA_HOST_RUNNER_BUNDLE").is_some() {
+        return None;
+    }
+
+    Some(runner_ts_path(project_root))
 }
 
 #[must_use]
