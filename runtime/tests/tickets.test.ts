@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-import { createTicketContext } from "../src/helpers/tickets.ts";
+import { createTicketContext } from "../src/tools/tickets.ts";
 
 test("TicketContext: CRUD operations", async (t) => {
   const tmpDir = await fs.mkdtemp(

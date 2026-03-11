@@ -3,7 +3,14 @@ export type EventEmitter = (
   payload: Record<string, unknown>
 ) => void;
 
-export function createLogContext(emit: EventEmitter) {
+export interface LogContext {
+  debug(message: string): void;
+  info(message: string): void;
+  warn(message: string): void;
+  error(message: string): void;
+}
+
+export function createLogContext(emit: EventEmitter): LogContext {
   const log = (level: string, message: string) =>
     emit("log", { level, target: "workflow", message });
   return {

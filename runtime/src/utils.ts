@@ -1,3 +1,13 @@
-export { runExec, resolveExecSpec } from "./utils/exec.ts";
-export { sleepWithSignal } from "./utils/sleep.ts";
-export { createLogContext, type EventEmitter } from "./utils/log.ts";
+export {
+  runExec,
+  resolveExecSpec,
+  createExec,
+  type ExecContext,
+  type ExecResult,
+} from "./tools/exec.ts";
+export { sleepWithSignal } from "./tools/sleep.ts";
+export {
+  createLogContext,
+  type EventEmitter,
+  type LogContext,
+} from "./tools/log.ts";

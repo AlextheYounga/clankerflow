@@ -3,12 +3,29 @@ import path from "node:path";
 
 import type { RuntimeEnv } from "../protocol.ts";
 
+export interface ExecResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+export type ExecContext = (
+  command: string,
+  args?: string[]
+) => Promise<ExecResult>;
+
+export interface ExecOptions {
+  runtimeEnv: RuntimeEnv;
+  workspaceRoot: string;
+  signal: AbortSignal;
+}
+
 export function runExec(
   command: string,
   args: string[],
   cwd: string,
   signal: AbortSignal
-): Promise<{ code: number; stdout: string; stderr: string }> {
+): Promise<ExecResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -47,6 +64,19 @@ export function runExec(
   });
 }
 
+export function createExec(options: ExecOptions): ExecContext {
+  return (command: string, args: string[] = []) => {
+    const spec = resolveExecSpec(
+      options.runtimeEnv,
+      command,
+      args,
+      options.workspaceRoot
+    );
+
+    return runExec(spec.bin, spec.args, spec.cwd, options.signal);
+  };
+}
+
 export function resolveExecSpec(
   runtimeEnv: RuntimeEnv,
   command: string,
@@ -58,7 +88,7 @@ export function resolveExecSpec(
   }
 
   // Container mode shells out through `docker compose exec` so workflows can
-  // keep using the same `ctx.exec` API regardless of runtime target.
+  // keep using the same `tools.exec` API regardless of runtime target.
   return {
     bin: "docker",
     args: [

@@ -1,63 +1,32 @@
 import type { RuntimeEnv } from "./protocol.ts";
-import {
-  runExec,
-  resolveExecSpec,
-  sleepWithSignal,
-  createLogContext,
-  type EventEmitter,
-} from "./utils.ts";
+import type { Ticket } from "./tools/tickets/parser.ts";
+import { toContextTicket } from "./tools/tickets.ts";
+import { resolveExecSpec } from "./utils.ts";
 
 export { resolveExecSpec };
 
-type CapabilityInvoker = (
-  name: string,
-  payload: Record<string, unknown>
-) => Promise<Record<string, unknown>>;
-
-export interface RunnerContextOptions {
+export interface ContextOptions {
   workspaceRoot: string;
   runtimeEnv: RuntimeEnv;
   yolo: boolean;
   signal: AbortSignal;
-  emitEvent: EventEmitter;
-  invokeCapability: CapabilityInvoker;
   ticket?: unknown;
 }
 
-const createAgentContext = (options: RunnerContextOptions) => ({
-  run: (input: Record<string, unknown>) =>
-    options.invokeCapability("session_run", {
-      yolo: options.yolo,
-      ...input,
-    }),
-  events: (sessionId: string) =>
-    options.invokeCapability("session_events_subscribe", {
-      session_id: sessionId,
-    }),
-  messages: (sessionId: string) =>
-    options.invokeCapability("session_messages_list", {
-      session_id: sessionId,
-    }),
-  cancel: (sessionId: string) =>
-    options.invokeCapability("session_cancel", { session_id: sessionId }),
-});
+export interface WorkflowContext {
+  workspaceRoot: string;
+  runtimeEnv: RuntimeEnv;
+  yolo: boolean;
+  ticket: Ticket | null;
+  signal: AbortSignal;
+}
 
-export function createContext(options: RunnerContextOptions) {
+export function createContext(options: ContextOptions): WorkflowContext {
   return {
+    workspaceRoot: options.workspaceRoot,
+    runtimeEnv: options.runtimeEnv,
     yolo: options.yolo,
-    ticket: options.ticket ?? null,
-    agent: createAgentContext(options),
-    exec: (command: string, args: string[] = []) => {
-      const spec = resolveExecSpec(
-        options.runtimeEnv,
-        command,
-        args,
-        options.workspaceRoot
-      );
-      return runExec(spec.bin, spec.args, spec.cwd, options.signal);
-    },
-    log: createLogContext(options.emitEvent),
-    sleep: (ms: number) => sleepWithSignal(ms, options.signal),
+    ticket: toContextTicket(options.ticket),
     signal: options.signal,
   };
 }

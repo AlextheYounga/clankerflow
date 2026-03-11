@@ -1,14 +1,37 @@
 import path from "node:path";
 
+import type { AgentContext } from "./tools/agent.ts";
+import type { WorkflowContext } from "./context.ts";
+import type { FsContext } from "./tools/fs.ts";
+import type { GitContext } from "./tools/git.ts";
+import type { TicketContext } from "./tools/tickets.ts";
+import type { ExecContext } from "./tools/exec.ts";
+import type { LogContext } from "./tools/log.ts";
+
 export interface WorkflowMeta {
   id: string;
   name: string;
   runtime: "host" | "container";
 }
 
+export interface WorkflowTools {
+  agent: AgentContext;
+  exec: ExecContext;
+  log: LogContext;
+  sleep(ms: number): Promise<void>;
+  fs: FsContext;
+  git: GitContext;
+  tickets: TicketContext;
+}
+
+export type WorkflowRun = (
+  context: WorkflowContext,
+  tools: WorkflowTools
+) => Promise<void>;
+
 export interface WorkflowModule {
   meta: WorkflowMeta;
-  run: (ctx: unknown) => Promise<void>;
+  run: WorkflowRun;
 }
 
 export async function loadWorkflowModule(
@@ -44,7 +67,7 @@ function validateMeta(input: unknown): WorkflowMeta {
   return meta as WorkflowMeta;
 }
 
-function validateDefaultRun(input: unknown): (ctx: unknown) => Promise<void> {
+function validateDefaultRun(input: unknown): WorkflowRun {
   if (typeof input !== "function") {
     throw new Error("workflow default export must be an async function");
   }
@@ -52,7 +75,7 @@ function validateDefaultRun(input: unknown): (ctx: unknown) => Promise<void> {
   if (constructorName !== "AsyncFunction") {
     throw new Error("workflow default export must be an async function");
   }
-  return input as (ctx: unknown) => Promise<void>;
+  return input as WorkflowRun;
 }
 
 function pathToFileUrl(filePath: string): string {

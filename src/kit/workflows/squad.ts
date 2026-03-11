@@ -1,5 +1,9 @@
-import type { WorkflowMeta, WorkflowContext, Ticket } from "agentkata";
-import { fs, tickets } from "agentkata/helpers";
+import type {
+  WorkflowMeta,
+  WorkflowContext,
+  WorkflowTools,
+  Ticket,
+} from "agentkata";
 
 export const meta: WorkflowMeta = {
   id: "dev-team",
@@ -34,9 +38,9 @@ function assertTicket(
   return checked.ticket;
 }
 
-async function runArchitect(ctx: WorkflowContext) {
-  const prompt = await fs.read(".agents/context/roles/architect.md");
-  const result = await ctx.agent.run({
+async function runArchitect(tools: WorkflowTools) {
+  const prompt = await tools.fs.read(".agents/context/roles/architect.md");
+  const result = await tools.agent.run({
     title: "Architect: Create outline",
     prompt,
   });
@@ -48,9 +52,12 @@ async function runArchitect(ctx: WorkflowContext) {
   return result;
 }
 
-async function runProjectManager(ctx: WorkflowContext, outlineContent: string) {
-  const rolePrompt = await fs.read(".agents/context/roles/pm.md");
-  const result = await ctx.agent.run({
+async function runProjectManager(
+  tools: WorkflowTools,
+  outlineContent: string,
+) {
+  const rolePrompt = await tools.fs.read(".agents/context/roles/pm.md");
+  const result = await tools.agent.run({
     title: "PM: Create tickets",
     prompt: [rolePrompt, "", "Architecture Outline:", outlineContent].join("\n"),
   });
@@ -60,9 +67,9 @@ async function runProjectManager(ctx: WorkflowContext, outlineContent: string) {
   }
 }
 
-async function runDev(ctx: WorkflowContext, ticket: Ticket) {
-  const rolePrompt = await fs.read(".agents/context/roles/dev.md");
-  const result = await ctx.agent.run({
+async function runDev(tools: WorkflowTools, ticket: Ticket) {
+  const rolePrompt = await tools.fs.read(".agents/context/roles/dev.md");
+  const result = await tools.agent.run({
     title: `Dev: ${ticket.title}`,
     prompt: [
       renderRolePrompt(rolePrompt, ticket),
@@ -86,12 +93,12 @@ async function runDev(ctx: WorkflowContext, ticket: Ticket) {
 }
 
 async function runQA(
-  ctx: WorkflowContext,
+  tools: WorkflowTools,
   ticket: Ticket,
   devOutput: string | undefined,
 ) {
-  const rolePrompt = await fs.read(".agents/context/roles/qa.md");
-  const result = await ctx.agent.run({
+  const rolePrompt = await tools.fs.read(".agents/context/roles/qa.md");
+  const result = await tools.agent.run({
     title: `QA: ${ticket.title}`,
     prompt: [
       renderRolePrompt(rolePrompt, ticket),
@@ -115,36 +122,36 @@ async function runQA(
   }
 }
 
-async function processDevQaCycle(ctx: WorkflowContext, ticket: Ticket) {
+async function processDevQaCycle(tools: WorkflowTools, ticket: Ticket) {
   assertOk(
-    await tickets.updateStatus({ id: ticket.ticketId, status: "IN_PROGRESS" }),
+    await tools.tickets.updateStatus({ id: ticket.ticketId, status: "IN_PROGRESS" }),
     `Update ticket ${ticket.ticketId} to IN_PROGRESS`,
   );
 
-  const devResult = await runDev(ctx, ticket);
+  const devResult = await runDev(tools, ticket);
 
   assertOk(
-    await tickets.updateStatus({ id: ticket.ticketId, status: "QA_REVIEW" }),
+    await tools.tickets.updateStatus({ id: ticket.ticketId, status: "QA_REVIEW" }),
     `Update ticket ${ticket.ticketId} to QA_REVIEW`,
   );
 
-  await runQA(ctx, ticket, devResult.output);
+  await runQA(tools, ticket, devResult.output);
 
-  const refreshed = await tickets.get({ id: ticket.ticketId });
+  const refreshed = await tools.tickets.get({ id: ticket.ticketId });
   return assertTicket(refreshed, `Refresh ticket ${ticket.ticketId}`);
 }
 
-async function passTicketToDevTeam(ctx: WorkflowContext, ticket: Ticket) {
+async function passTicketToDevTeam(tools: WorkflowTools, ticket: Ticket) {
   for (let cycle = 1; cycle <= MAX_REVIEW_CYCLES; cycle++) {
-    ticket = await processDevQaCycle(ctx, ticket);
+    ticket = await processDevQaCycle(tools, ticket);
 
     if (ticket.status === "CLOSED") {
-      ctx.log.info(`Ticket ${ticket.ticketId} closed after ${cycle} cycle(s)`);
+      tools.log.info(`Ticket ${ticket.ticketId} closed after ${cycle} cycle(s)`);
       return { ticketId: ticket.ticketId, cycles: cycle, ok: true };
     }
 
     if (ticket.status !== "QA_CHANGES_REQUESTED") {
-      ctx.log.warn(
+      tools.log.warn(
         `Ticket ${ticket.ticketId} has unexpected status '${ticket.status}' after QA — stopping`,
       );
       return {
@@ -155,17 +162,17 @@ async function passTicketToDevTeam(ctx: WorkflowContext, ticket: Ticket) {
       };
     }
 
-    ctx.log.info(
+    tools.log.info(
       `Ticket ${ticket.ticketId} needs changes (cycle ${cycle}/${MAX_REVIEW_CYCLES})`,
     );
   }
 
   assertOk(
-    await tickets.updateStatus({ id: ticket.ticketId, status: "STUCK" }),
+    await tools.tickets.updateStatus({ id: ticket.ticketId, status: "STUCK" }),
     `Update ticket ${ticket.ticketId} to STUCK`,
   );
   assertOk(
-    await tickets.comment({
+    await tools.tickets.comment({
       id: ticket.ticketId,
       text: `Stuck after ${MAX_REVIEW_CYCLES} dev/QA cycles without resolution.`,
     }),
@@ -180,41 +187,46 @@ async function passTicketToDevTeam(ctx: WorkflowContext, ticket: Ticket) {
   };
 }
 
-export default async function squadWorkflow(ctx: WorkflowContext) {
+export default async function squadWorkflow(
+  _context: WorkflowContext,
+  tools: WorkflowTools,
+) {
   // Phase 1: Architect produces outline.md
-  ctx.log.info("Phase 1: Architect");
-  await runArchitect(ctx);
+  tools.log.info("Phase 1: Architect");
+  await runArchitect(tools);
 
-  const outlineExists = await fs.exists(OUTLINE_PATH);
+  const outlineExists = await tools.fs.exists(OUTLINE_PATH);
   if (!outlineExists) {
     throw new Error(`Architect did not produce ${OUTLINE_PATH}`);
   }
 
-  const outline = await fs.read(OUTLINE_PATH);
+  const outline = await tools.fs.read(OUTLINE_PATH);
 
   // Phase 2: PM reads outline and creates tickets
-  ctx.log.info("Phase 2: Project Manager");
-  await runProjectManager(ctx, outline);
+  tools.log.info("Phase 2: Project Manager");
+  await runProjectManager(tools, outline);
 
   // Phase 3: Dev + QA loop through all open tickets
-  ctx.log.info("Phase 3: Dev + QA");
-  const listResult = await tickets.list();
+  tools.log.info("Phase 3: Dev + QA");
+  const listResult = await tools.tickets.list();
   if (!listResult.ok) {
     throw new Error(`Failed to list tickets: ${listResult.errors}`);
   }
 
   const openTickets = listResult.tickets.filter((t) => t.status === "OPEN");
-  ctx.log.info(`Processing ${openTickets.length} open ticket(s)`);
+  tools.log.info(`Processing ${openTickets.length} open ticket(s)`);
 
   const results = [];
   for (const ticket of openTickets) {
-    const result = await passTicketToDevTeam(ctx, ticket);
+    const result = await passTicketToDevTeam(tools, ticket);
     results.push(result);
   }
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.filter((r) => !r.ok).length;
-  ctx.log.info(`Done. ${passed} ticket(s) closed, ${failed} stuck or unresolved.`);
+  tools.log.info(
+    `Done. ${passed} ticket(s) closed, ${failed} stuck or unresolved.`,
+  );
 
   return { ok: true, results };
 }

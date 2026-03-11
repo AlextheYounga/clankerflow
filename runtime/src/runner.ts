@@ -1,6 +1,11 @@
 import { IpcTransport, IpcRouter } from "./ipc.ts";
 import { createContext } from "./context.ts";
+import { createAgent } from "./tools/agent.ts";
+import { createFsContext } from "./tools/fs.ts";
+import { createGitContext } from "./tools/git.ts";
+import { createTicketContext } from "./tools/tickets.ts";
 import { loadWorkflowModule } from "./loader.ts";
+import { createExec, createLogContext, sleepWithSignal } from "./utils.ts";
 import type { StartRunPayload, CancelRunPayload } from "./protocol.ts";
 
 interface ActiveRun {
@@ -105,19 +110,26 @@ class Runner {
       timestamp: new Date().toISOString(),
     });
 
-    const ctx = createContext({
-      workspaceRoot: process.cwd(),
+    const workspaceRoot = process.cwd();
+    const signal = controller.signal;
+    const emitEvent = (name: string, eventPayload: Record<string, unknown>) => {
+      this.emit(name, {
+        run_id: payload.run_id,
+        ...eventPayload,
+        timestamp: new Date().toISOString(),
+      });
+    };
+
+    const context = createContext({
+      workspaceRoot,
       runtimeEnv: payload.runtime_env,
       yolo: payload.yolo,
-      signal: controller.signal,
+      signal,
       ticket: payload.workflow_input.ticket,
-      emitEvent: (name, eventPayload) => {
-        this.emit(name, {
-          run_id: payload.run_id,
-          ...eventPayload,
-          timestamp: new Date().toISOString(),
-        });
-      },
+    });
+
+    const agent = createAgent({
+      yolo: payload.yolo,
       invokeCapability: (capability, params) => {
         const ipc = this.ipc;
         if (ipc === null) return Promise.reject(new Error("ipc not ready"));
@@ -126,12 +138,24 @@ class Runner {
         return ipc.request(
           "capability_request",
           { run_id: payload.run_id, capability, params },
-          controller.signal
+          signal
         );
       },
     });
 
-    await module.run(ctx);
+    const exec = createExec({
+      runtimeEnv: payload.runtime_env,
+      workspaceRoot,
+      signal,
+    });
+
+    const log = createLogContext(emitEvent);
+    const sleep = (ms: number) => sleepWithSignal(ms, signal);
+    const fs = createFsContext(workspaceRoot);
+    const git = createGitContext(workspaceRoot);
+    const tickets = createTicketContext(workspaceRoot);
+
+    await module.run(context, { agent, exec, log, sleep, fs, git, tickets });
   }
 
   private emitRunError(
