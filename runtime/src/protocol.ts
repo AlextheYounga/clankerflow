@@ -1,11 +1,6 @@
 export type RuntimeEnv = "host" | "container";
 
-export type IpcMessageKind =
-  | "command"
-  | "event"
-  | "request"
-  | "response"
-  | "error";
+export type IpcMessageKind = "command" | "event" | "response" | "error";
 
 export interface IpcMessage {
   v: "v1";
@@ -26,21 +21,6 @@ export interface StartRunPayload {
 export interface CancelRunPayload {
   run_id: number;
   reason: string;
-}
-
-export interface CapabilityRequestPayload {
-  request_id: string;
-  run_id: number;
-  capability: string;
-  params: Record<string, unknown>;
-}
-
-export interface CapabilityResponsePayload {
-  result: Record<string, unknown>;
-}
-
-export interface CapabilityErrorPayload {
-  error: string;
 }
 
 function isVersionedObject(value: unknown): value is Record<string, unknown> {

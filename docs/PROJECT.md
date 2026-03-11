@@ -147,6 +147,7 @@ Commands:
 - Workflow helper APIs (agent, git, tickets, etc.).
 - TypeScript/JavaScript workflow linting and validation support.
 - Workflows can invoke agents through OpenCode SDK sessions.
+- Workflow authors can pass OpenCode session options (for example model/provider overrides, mode/tools/system inputs, and command-style prompts like `/review`) through runtime agent APIs.
 - `.agents/settings.json` handles global settings (for example git username/email for automated git operations).
 - Per-project drop-in architecture.
 - `agentctl manage` opens the OpenCode web UI for the current project in the browser.

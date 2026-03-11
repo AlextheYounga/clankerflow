@@ -44,8 +44,9 @@ Body content 2`;
   await t.test("should get ticket by id", async () => {
     const result = await ticketCtx.get({ id: "001" });
     assert.strictEqual(result.ok, true);
-    assert.strictEqual(result.ticket?.title, "Test Ticket 1");
-    assert.strictEqual(result.ticket?.branch, null);
+    assert.ok(result.ticket);
+    assert.strictEqual(result.ticket.title, "Test Ticket 1");
+    assert.strictEqual(result.ticket.branch, null);
   });
 
   await t.test("should parse branch from ticket frontmatter", async () => {

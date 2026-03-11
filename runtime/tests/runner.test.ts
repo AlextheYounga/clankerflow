@@ -117,8 +117,9 @@ async function runRunnerSequence(
   });
 
   // Drain stderr to prevent blocking; we don't assert on it in these tests.
-  child.stderr!.setEncoding("utf8");
-  child.stderr!.on("data", (_chunk: string) => {
+  assert.ok(child.stderr);
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (_chunk: string) => {
     /* drain */
   });
 

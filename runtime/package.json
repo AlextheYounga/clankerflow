@@ -24,6 +24,7 @@
     "typescript-eslint": "^8.56.1"
   },
   "dependencies": {
+    "@opencode-ai/sdk": "^1.2.24",
     "gray-matter": "^4.0.3",
     "simple-git": "^3.32.3"
   }

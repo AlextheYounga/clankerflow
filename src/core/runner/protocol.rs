@@ -1,7 +1,5 @@
 use std::io::{Error as IoError, Result as IoResult};
 
-use anyhow::{Result, anyhow};
-use serde_json::Value;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::core::ipc::Message;
@@ -10,24 +8,6 @@ use crate::core::ipc::Message;
 pub enum LoopControl {
     Continue,
     Stop,
-}
-
-pub fn parse_capability_request_payload(payload: &Value) -> Result<(&str, &Value, &str)> {
-    // `request_id` must come from the payload, not the envelope id, because the
-    // router uses it to correlate Promise resolution on the Node side.
-    let capability = payload
-        .get("capability")
-        .and_then(|value| value.as_str())
-        .ok_or_else(|| anyhow!("capability_request missing payload.capability"))?;
-    let params = payload
-        .get("params")
-        .ok_or_else(|| anyhow!("capability_request missing payload.params"))?;
-    let request_id = payload
-        .get("request_id")
-        .and_then(|value| value.as_str())
-        .ok_or_else(|| anyhow!("capability_request missing payload.request_id"))?;
-
-    Ok((capability, params, request_id))
 }
 
 pub async fn write_message(

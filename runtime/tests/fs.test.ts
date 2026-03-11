@@ -11,8 +11,8 @@ test("FsContext: workspace scoping", async (t) => {
   const fsCtx = createFsContext(tmpDir);
 
   await t.test("should write and read files", async () => {
-    await fsCtx.writeText("test.txt", "hello world");
-    const content = await fsCtx.readText("test.txt");
+    await fsCtx.write("test.txt", "hello world");
+    const content = await fsCtx.read("test.txt");
     assert.strictEqual(content, "hello world");
   });
 
@@ -29,10 +29,7 @@ test("FsContext: workspace scoping", async (t) => {
   });
 
   await t.test("should prevent path escapes", async () => {
-    await assert.rejects(
-      () => fsCtx.readText("../escaped.txt"),
-      /escapes workspace root/
-    );
+    await assert.rejects(() => fsCtx.read("../escaped.txt"), /escapes workspace root/);
   });
 
   await fs.rm(tmpDir, { recursive: true });

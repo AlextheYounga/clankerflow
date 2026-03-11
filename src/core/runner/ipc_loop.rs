@@ -1,4 +1,3 @@
-use std::io::ErrorKind;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -8,12 +7,11 @@ use serde_json::json;
 use tokio::io::{self as tokio_io, AsyncBufReadExt, AsyncWrite, BufReader};
 use tokio::net::TcpStream;
 
-use crate::core::capabilities::{CapabilityRequest, dispatch as dispatch_capability};
 use crate::core::ipc::Message;
 use crate::db::entities::workflow_run::RunStatus;
 
 use super::WorkflowArgs;
-use super::protocol::{LoopControl, parse_capability_request_payload, send_cancel, write_message};
+use super::protocol::{LoopControl, send_cancel, write_message};
 use super::signal::CancelState;
 use super::store::{append_run_event, create_workflow_session, set_status};
 
@@ -21,18 +19,18 @@ pub struct IpcLoopContext {
     pub db: DatabaseConnection,
     pub run_id: i64,
     pub cancel: Arc<CancelState>,
-    pub server_url: String,
 }
 
 pub async fn send_start_run(
     ipc_write: &mut (impl AsyncWrite + Unpin),
     args: &WorkflowArgs<'_>,
+    run_id: i64,
 ) -> Result<()> {
     let message = Message::command(
         "cmd_start",
         "start_run",
         json!({
-            "run_id": 0, // Node uses its own tracking; DB run_id is Rust-side only
+            "run_id": run_id,
             "workflow_path": args.workflow_path,
             "runtime_env": args.env.as_str(),
             "yolo": args.yolo,
@@ -72,7 +70,7 @@ pub async fn drive_ipc_loop(
             break;
         };
 
-        let (loop_control, status) = handle_runner_line(ctx, ipc_write, &line).await?;
+        let (loop_control, status) = handle_runner_line(ctx, &line).await?;
         if let Some(status) = status {
             final_status = status;
         }
@@ -86,7 +84,6 @@ pub async fn drive_ipc_loop(
 
 async fn handle_runner_line(
     ctx: &IpcLoopContext,
-    ipc_write: &mut (impl AsyncWrite + Unpin),
     line: &str,
 ) -> Result<(LoopControl, Option<RunStatus>)> {
     let trimmed_line = line.trim();
@@ -109,30 +106,33 @@ async fn handle_runner_line(
     };
 
     match message.kind.as_str() {
-        "request" => {
-            let (capability, params, request_id) =
-                parse_capability_request_payload(&message.payload)?;
-            let request = CapabilityRequest { capability, params };
-            let response = dispatch_capability(request_id, &request, &ctx.server_url);
-            if capability == "session_run"
-                && let Some(session_id) =
-                    response.payload.get("session_id").and_then(|v| v.as_str())
-            {
-                create_workflow_session(&ctx.db, ctx.run_id, session_id).await?;
-            }
-            if let Err(error) = write_message(ipc_write, &response).await
-                && error.kind() != ErrorKind::BrokenPipe
-            {
-                return Err(anyhow!("failed to write capability response: {error}"));
-            }
-            Ok((LoopControl::Continue, None))
-        }
         "event" => {
             append_run_event(&ctx.db, ctx.run_id, &message.name, message.payload.clone()).await?;
+            persist_session_from_event(&ctx.db, ctx.run_id, &message).await?;
             update_run_status_for_event(&ctx.db, ctx.run_id, &message).await
         }
         _ => Ok((LoopControl::Continue, None)),
     }
+}
+
+async fn persist_session_from_event(
+    db: &DatabaseConnection,
+    run_id: i64,
+    message: &Message,
+) -> Result<()> {
+    if let Some(session_id) = session_id_from_event(message) {
+        create_workflow_session(db, run_id, session_id).await?;
+    }
+
+    Ok(())
+}
+
+fn session_id_from_event<'a>(message: &'a Message) -> Option<&'a str> {
+    if message.name != "agent_session_started" {
+        return None;
+    }
+
+    message.payload.get("session_id").and_then(|v| v.as_str())
 }
 
 async fn update_run_status_for_event(
@@ -174,30 +174,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_capability_request_payload_reads_nested_fields() {
-        let payload = json!({
-            "request_id": "req_123",
-            "capability": "session_run",
-            "params": { "prompt": "hello" }
-        });
+    fn session_id_from_event_reads_agent_session_started_payload() {
+        let message = Message::command(
+            "evt_1",
+            "agent_session_started",
+            json!({ "session_id": "sess_abc" }),
+        );
 
-        let (capability, params, request_id) = parse_capability_request_payload(&payload).unwrap();
+        let session_id = session_id_from_event(&message);
 
-        assert_eq!(capability, "session_run");
-        assert_eq!(request_id, "req_123");
-        assert_eq!(params["prompt"], "hello");
+        assert_eq!(session_id, Some("sess_abc"));
     }
 
     #[test]
-    fn parse_capability_request_payload_requires_request_id() {
-        let payload = json!({
-            "capability": "session_run",
-            "params": { "prompt": "hello" }
-        });
+    fn session_id_from_event_ignores_non_agent_events() {
+        let message = Message::command("evt_1", "run_started", json!({ "session_id": "sess_abc" }));
 
-        let error = parse_capability_request_payload(&payload).unwrap_err();
+        let session_id = session_id_from_event(&message);
 
-        assert!(error.to_string().contains("payload.request_id"));
+        assert_eq!(session_id, None);
     }
 
     #[test]

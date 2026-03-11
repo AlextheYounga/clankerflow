@@ -60,6 +60,7 @@ Legend: `[x]` done, `[ ]` not started, `[~]` partially done / stub exists.
 
 ## Remaining
 
+- [ ] Revisit duplicate `agent_session_started` handling and decide whether Node guarantees single emission or Rust persists sessions idempotently
 - [ ] Background/daemon execution (design in `docs/future/daemon.md`)
 - [ ] Long-term agent memory via SQLite
 - [ ] Bundled Node runtime distribution for releases

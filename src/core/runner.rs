@@ -17,7 +17,7 @@ use tokio::process::Child;
 use tokio::time::timeout;
 
 use crate::app::types::RuntimeEnv;
-use crate::core::settings::Settings;
+use crate::core::codebase_id;
 use crate::db::connection::connect;
 use crate::db::entities::workflow_run::RunStatus;
 
@@ -27,8 +27,6 @@ use protocol::send_shutdown;
 use signal::{CancelState, install_signal_handler, wait_for_child};
 use store::{create_run, upsert_workflow};
 
-const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
-
 /// Parameters for running a workflow synchronously.
 pub struct WorkflowArgs<'a> {
     pub project_root: &'a Path,
@@ -36,7 +34,6 @@ pub struct WorkflowArgs<'a> {
     pub workflow_path: &'a Path,
     pub env: RuntimeEnv,
     pub yolo: bool,
-    pub codebase_id: &'a str,
 }
 
 struct NodeRunner {
@@ -57,14 +54,15 @@ struct NodeRunner {
 /// registered, the run record cannot be created, or the Node runtime fails.
 pub async fn run_workflow(args: &WorkflowArgs<'_>) -> Result<RunStatus> {
     let ctx = setup_run(args).await?;
-    let mut runner = spawn_runner(args.project_root, args.env, args.codebase_id).await?;
+    let codebase_id = codebase_id::derive(args.project_root);
+    let mut runner = spawn_runner(args.project_root, args.env, &codebase_id).await?;
     let ipc = runner
         .ipc
         .take()
         .ok_or_else(|| anyhow!("IPC channel not available"))?;
     let (ipc_read, mut ipc_write) = io::split(ipc);
 
-    send_start_run(&mut ipc_write, args).await?;
+    send_start_run(&mut ipc_write, args, ctx.run_id).await?;
     install_signal_handler(&ctx.cancel);
 
     let final_status = drive_ipc_loop(&ctx, &mut ipc_write, ipc_read).await?;
@@ -82,12 +80,6 @@ async fn setup_run(args: &WorkflowArgs<'_>) -> Result<IpcLoopContext> {
     let workflow_id = upsert_workflow(&db, args.workflow_name, args.workflow_path).await?;
     let run_id = create_run(&db, workflow_id, workflow_env).await?;
 
-    let server_url = Settings::load(args.project_root)
-        .ok()
-        .and_then(|s| s.opencode)
-        .and_then(|o| o.server_url)
-        .unwrap_or_else(|| DEFAULT_OPENCODE_URL.to_string());
-
     println!("workflow started (run id: {run_id})");
 
     let cancel = Arc::new(CancelState {
@@ -95,12 +87,7 @@ async fn setup_run(args: &WorkflowArgs<'_>) -> Result<IpcLoopContext> {
         force_kill: AtomicBool::new(false),
     });
 
-    Ok(IpcLoopContext {
-        db,
-        run_id,
-        cancel,
-        server_url,
-    })
+    Ok(IpcLoopContext { db, run_id, cancel })
 }
 
 async fn spawn_runner(

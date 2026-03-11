@@ -3,20 +3,14 @@ use std::path::{Path, PathBuf};
 use crate::app::types::RuntimeEnv;
 use crate::core::project::require_project_root;
 use crate::core::runner::{WorkflowArgs, run_workflow};
-use crate::core::settings::Settings;
 use crate::db::entities::workflow_run::RunStatus;
 
 /// # Errors
-/// Returns an error if the project root is not found, settings fail to load,
-/// the workflow path cannot be resolved, or the workflow fails to run.
+/// Returns an error if the project root is not found, the workflow path cannot
+/// be resolved, or the workflow fails to run.
 pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let workflow_path = resolve_workflow(&project_root, &name)?;
-    let settings = Settings::load(&project_root)?;
-
-    if settings.codebase_id.is_empty() {
-        anyhow::bail!("codebase_id is missing from settings; run `kata init` first");
-    }
 
     let args = WorkflowArgs {
         project_root: &project_root,
@@ -24,7 +18,6 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
         workflow_path: &workflow_path,
         env,
         yolo,
-        codebase_id: &settings.codebase_id,
     };
 
     let final_status = run_workflow(&args).await?;

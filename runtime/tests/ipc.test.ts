@@ -49,9 +49,11 @@ test("IpcTransport connects and exchanges JSON messages over TCP", async () => {
   await delay(50);
 
   assert.equal(received.length, 1);
-  assert.equal(received[0]!.id, "test_1");
-  assert.equal(received[0]!.name, "start_run");
-  assert.deepEqual(received[0]!.payload, { run_id: 1 });
+  const firstReceived = received[0];
+  assert.ok(firstReceived);
+  assert.equal(firstReceived.id, "test_1");
+  assert.equal(firstReceived.name, "start_run");
+  assert.deepEqual(firstReceived.payload, { run_id: 1 });
 
   client.destroy();
   serverSocket.destroy();
@@ -104,7 +106,9 @@ test("line-delimited framing handles partial chunks", async () => {
   await delay(30);
 
   assert.equal(received.length, 1, "should parse complete message");
-  assert.equal(received[0]!.id, "partial_1");
+  const firstReceived = received[0];
+  assert.ok(firstReceived);
+  assert.equal(firstReceived.id, "partial_1");
 
   client.destroy();
   serverSocket.destroy();

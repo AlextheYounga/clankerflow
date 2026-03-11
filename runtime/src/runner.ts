@@ -130,17 +130,10 @@ class Runner {
 
     const agent = createAgent({
       yolo: payload.yolo,
-      invokeCapability: (capability, params) => {
-        const ipc = this.ipc;
-        if (ipc === null) return Promise.reject(new Error("ipc not ready"));
-        // `request` keeps cancellation responsive: aborting the run rejects any
-        // in-flight capability Promise and prevents hanging workflow steps.
-        return ipc.request(
-          "capability_request",
-          { run_id: payload.run_id, capability, params },
-          signal
-        );
-      },
+      runId: payload.run_id,
+      runtimeEnv: payload.runtime_env,
+      workspaceRoot,
+      emitEvent,
     });
 
     const exec = createExec({

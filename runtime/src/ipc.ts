@@ -9,10 +9,6 @@ import {
 type CommandHandler = (
   payload: Record<string, unknown>
 ) => void | Promise<void>;
-interface PendingRequest {
-  resolve: (result: Record<string, unknown>) => void;
-  reject: (error: Error) => void;
-}
 
 export class IpcTransport {
   private socket: net.Socket | null = null;
@@ -89,7 +85,6 @@ export class IpcTransport {
 export class IpcRouter {
   private readonly transport: IpcTransport;
   private readonly commandHandlers = new Map<string, CommandHandler>();
-  private readonly pendingRequests = new Map<string, PendingRequest>();
 
   constructor(transport: IpcTransport) {
     this.transport = transport;
@@ -106,25 +101,6 @@ export class IpcRouter {
   }
 
   private async handleMessage(message: IpcMessage): Promise<void> {
-    if (message.kind === "response") {
-      const pending = this.pendingRequests.get(message.id);
-      if (pending) {
-        this.pendingRequests.delete(message.id);
-        pending.resolve(message.payload);
-      }
-      return;
-    }
-
-    if (message.kind === "error") {
-      const pending = this.pendingRequests.get(message.id);
-      if (pending) {
-        this.pendingRequests.delete(message.id);
-        const payload = message.payload as { error?: string };
-        pending.reject(new Error(payload.error ?? "request failed"));
-      }
-      return;
-    }
-
     if (message.kind === "command") {
       const handler = this.commandHandlers.get(message.name);
       if (handler) {
@@ -161,53 +137,6 @@ export class IpcRouter {
 
   emit(name: string, payload: Record<string, unknown>): void {
     this.send("event", name, payload);
-  }
-
-  request(
-    name: string,
-    payload: Record<string, unknown>,
-    signal?: AbortSignal
-  ): Promise<Record<string, unknown>> {
-    const requestId = `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-    return new Promise((resolve, reject) => {
-      if (signal?.aborted === true) {
-        reject(new Error("operation cancelled"));
-        return;
-      }
-
-      const abortHandler = () => {
-        // Dropping the pending entry on abort is required to avoid leaking
-        // resolvers when the Rust side is slow or never replies.
-        this.pendingRequests.delete(requestId);
-        reject(new Error("operation cancelled"));
-      };
-
-      if (signal) {
-        signal.addEventListener("abort", abortHandler, { once: true });
-      }
-
-      this.pendingRequests.set(requestId, {
-        resolve: (result) => {
-          signal?.removeEventListener("abort", abortHandler);
-          resolve(result);
-        },
-        reject: (error) => {
-          signal?.removeEventListener("abort", abortHandler);
-          reject(error);
-        },
-      });
-
-      this.transport.send({
-        v: "v1",
-        id: requestId,
-        kind: "request",
-        name,
-        // Echo request_id in payload because Rust capability dispatch parses it
-        // from payload fields, not from the outer envelope.
-        payload: { ...payload, request_id: requestId },
-      });
-    });
   }
 }
 

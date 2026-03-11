@@ -1,8 +1,6 @@
 use std::path::Path;
 
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD_NO_PAD;
-
+use crate::core::codebase_id;
 use crate::core::project::require_project_root;
 use crate::core::settings::Settings;
 
@@ -28,14 +26,7 @@ pub fn run() -> anyhow::Result<()> {
 }
 
 fn build_manage_url(server_url: &str, project_root: &Path) -> String {
-    #[cfg(unix)]
-    let encoded = {
-        use std::os::unix::ffi::OsStrExt;
-        STANDARD_NO_PAD.encode(project_root.as_os_str().as_bytes())
-    };
-
-    #[cfg(not(unix))]
-    let encoded = STANDARD_NO_PAD.encode(project_root.to_string_lossy().as_bytes());
+    let encoded = codebase_id::derive(project_root);
     format!("{}/{}/sessions", server_url.trim_end_matches('/'), encoded)
 }
 
@@ -50,7 +41,7 @@ mod tests {
         assert!(url.starts_with("http://127.0.0.1:4096/"));
         assert!(url.ends_with("/sessions"));
 
-        let encoded = STANDARD_NO_PAD.encode(b"/home/alex/project");
+        let encoded = codebase_id::derive(Path::new("/home/alex/project"));
         assert_eq!(url, format!("http://127.0.0.1:4096/{encoded}/sessions"));
     }
 

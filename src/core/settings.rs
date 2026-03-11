@@ -24,7 +24,6 @@ pub struct OpencodeConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-    pub codebase_id: String,
     pub git: GitConfig,
     pub workflows: WorkflowConfig,
     pub opencode: Option<OpencodeConfig>,
@@ -59,7 +58,6 @@ mod tests {
 
     fn sample_settings() -> Settings {
         Settings {
-            codebase_id: "abc123".to_string(),
             git: GitConfig {
                 user_name: "Alex".to_string(),
                 user_email: "alex@example.com".to_string(),
@@ -82,7 +80,6 @@ mod tests {
     fn load_reads_valid_settings_json() {
         let dir = setup();
         let json = r#"{
-  "codebase_id": "abc123",
   "git": {
     "user_name": "Alex",
     "user_email": "alex@example.com",
@@ -96,7 +93,6 @@ mod tests {
 
         let settings = Settings::load(dir.path()).unwrap();
 
-        assert_eq!(settings.codebase_id, "abc123");
         assert_eq!(settings.git.user_name, "Alex");
         assert_eq!(settings.workflows.default, "duos");
     }
@@ -109,7 +105,6 @@ mod tests {
         settings.save(dir.path()).unwrap();
         let loaded = Settings::load(dir.path()).unwrap();
 
-        assert_eq!(loaded.codebase_id, settings.codebase_id);
         assert_eq!(loaded.git.user_email, settings.git.user_email);
         assert_eq!(loaded.workflows.default, settings.workflows.default);
     }
@@ -137,7 +132,6 @@ mod tests {
     fn load_reads_settings_without_opencode_field() {
         let dir = setup();
         let json = r#"{
-  "codebase_id": "abc123",
   "git": { "user_name": "Alex", "user_email": "alex@example.com", "default_branch": "main" },
   "workflows": { "default": "duos" }
 }"#;
@@ -152,7 +146,6 @@ mod tests {
     fn load_reads_opencode_server_url() {
         let dir = setup();
         let json = r#"{
-  "codebase_id": "abc123",
   "git": { "user_name": "Alex", "user_email": "alex@example.com", "default_branch": "main" },
   "workflows": { "default": "duos" },
   "opencode": { "server_url": "http://10.0.0.5:8080" }
