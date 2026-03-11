@@ -7,13 +7,13 @@ import { scanTickets } from "./scanner.ts";
 import { TicketLookup } from "./lookup.ts";
 
 export interface TicketContext {
-  list: () => Promise<{ tickets: Ticket[]; errors: unknown[] }>;
+  list: () => Promise<{ ok: boolean; tickets: Ticket[]; errors: unknown[] }>;
   get: (options: {
     id: string;
-  }) => Promise<{ ticket?: Ticket; error?: string }>;
+  }) => Promise<{ ok: boolean; ticket?: Ticket; error?: string }>;
   getNext: (options?: {
     status?: string;
-  }) => Promise<{ ticket?: Ticket; error?: string }>;
+  }) => Promise<{ ok: boolean; ticket?: Ticket; error?: string }>;
   updateStatus: (options: {
     id: string;
     status: string;

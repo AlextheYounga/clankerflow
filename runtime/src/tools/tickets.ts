@@ -21,6 +21,9 @@ export function isTicket(value: unknown): value is Ticket {
     typeof value.ticketId === "string" &&
     typeof value.title === "string" &&
     validStatus &&
+    (value.branch === undefined ||
+      value.branch === null ||
+      typeof value.branch === "string") &&
     typeof value.worktree === "string" &&
     (value.description === null || typeof value.description === "string") &&
     typeof value.filePath === "string" &&
@@ -28,6 +31,24 @@ export function isTicket(value: unknown): value is Ticket {
   );
 }
 
+function normalizeBranch(ticket: Ticket): string | null {
+  if (typeof ticket.branch === "string" && ticket.branch.trim().length > 0) {
+    return ticket.branch.trim();
+  }
+
+  const worktree = ticket.worktree.trim();
+  if (worktree.length > 0 && worktree !== "none") {
+    return worktree;
+  }
+
+  return null;
+}
+
 export function toContextTicket(ticket: unknown): Ticket | null {
-  return isTicket(ticket) ? ticket : null;
+  if (!isTicket(ticket)) return null;
+
+  return {
+    ...ticket,
+    branch: normalizeBranch(ticket),
+  };
 }

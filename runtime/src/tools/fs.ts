@@ -2,9 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export interface FsContext {
-  readText: (relativePath: string) => Promise<string>;
-  read: (relativePath: string) => Promise<string>; // Alias for compatibility
-  writeText: (relativePath: string, contents: string) => Promise<void>;
+  read: (relativePath: string) => Promise<string>;
+  write: (relativePath: string, contents: string) => Promise<void>;
   exists: (relativePath: string) => Promise<boolean>;
   listDir: (
     relativePath: string
@@ -24,11 +23,9 @@ export function createFsContext(workspaceRoot: string): FsContext {
   };
 
   return {
-    readText: async (relativePath: string) =>
-      fs.readFile(resolveAndValidatePath(relativePath), "utf8"),
     read: async (relativePath: string) =>
       fs.readFile(resolveAndValidatePath(relativePath), "utf8"),
-    writeText: async (relativePath: string, contents: string) =>
+    write: async (relativePath: string, contents: string) =>
       fs.writeFile(resolveAndValidatePath(relativePath), contents),
     exists: async (relativePath: string) => {
       try {

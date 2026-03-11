@@ -71,6 +71,7 @@ test("createContext preserves valid ticket shape", () => {
     ticketId: "T-1",
     title: "Title",
     status: "OPEN",
+    branch: "feature/t-1",
     worktree: "main",
     description: "Details",
     filePath: ".agents/tickets/T-1.md",
@@ -86,4 +87,25 @@ test("createContext preserves valid ticket shape", () => {
   });
 
   assert.deepEqual(context.ticket, ticket);
+});
+
+test("createContext infers branch from worktree for legacy tickets", () => {
+  const controller = new AbortController();
+  const context = createContext({
+    workspaceRoot: "/workspace",
+    runtimeEnv: "host",
+    yolo: false,
+    signal: controller.signal,
+    ticket: {
+      ticketId: "T-2",
+      title: "Legacy Ticket",
+      status: "OPEN",
+      worktree: "feature/t-2",
+      description: null,
+      filePath: ".agents/tickets/T-2.md",
+      frontmatter: { id: "T-2" },
+    },
+  });
+
+  assert.equal(context.ticket?.branch, "feature/t-2");
 });

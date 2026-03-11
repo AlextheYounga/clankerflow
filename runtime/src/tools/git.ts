@@ -17,19 +17,12 @@ export interface GitContext {
   pull: (remote?: string, branch?: string) => Promise<GitResult>;
   log: (options?: string[]) => Promise<GitResult>;
   checkout: (branch: string) => Promise<GitResult>;
-  checkoutBranch: (branch: string, startPoint: string) => Promise<GitResult>;
+  checkoutBranch: (branch: string, baseBranch: string) => Promise<GitResult>;
 }
 
 function errorCode(error: unknown): number {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof (error as { code: unknown }).code === "number"
-  ) {
-    return (error as { code: number }).code;
-  }
-  return 1;
+  const obj = error as Record<string, unknown>;
+  return typeof obj.code === "number" ? obj.code : 1;
 }
 
 function errorMessage(error: unknown): string {
@@ -37,10 +30,10 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-async function wrap<T>(
+async function wrap(
   git: SimpleGit,
   cmd: string,
-  fn: (g: SimpleGit) => Promise<T>
+  fn: (g: SimpleGit) => Promise<unknown>
 ): Promise<GitResult> {
   try {
     const result = await fn(git);
@@ -62,7 +55,7 @@ async function wrap<T>(
   }
 }
 
-function filesLabel(files: string | string[]): string {
+function toFileArgs(files: string | string[]): string {
   return Array.isArray(files) ? files.join(" ") : files;
 }
 
@@ -80,23 +73,23 @@ export function createGitContext(workspaceRoot: string): GitContext {
     status: () => wrap(git, "git status", (g) => g.status()),
     diff: () => wrap(git, "git diff", (g) => g.diff()),
     add: (files: string | string[]) =>
-      wrap(git, `git add ${filesLabel(files)}`, (g) => g.add(files)),
+      wrap(git, `git add ${toFileArgs(files)}`, (g) => g.add(files)),
     commit: (message: string) =>
       wrap(git, `git commit -m "${message}"`, (g) => g.commit(message)),
     push: (remote?: string, branch?: string) =>
-      wrap(git, `git push ${remote ?? ""} ${branch ?? ""}`, (g) =>
+      wrap(git, `git push ${remote ?? ""} ${branch ?? ""}`.trim(), (g) =>
         g.push(remote, branch)
       ),
     pull: (remote?: string, branch?: string) =>
-      wrap(git, `git pull ${remote ?? ""} ${branch ?? ""}`, (g) =>
+      wrap(git, `git pull ${remote ?? ""} ${branch ?? ""}`.trim(), (g) =>
         g.pull(remote, branch)
       ),
     log: (options?: string[]) => wrap(git, "git log", (g) => g.log(options)),
     checkout: (branch: string) =>
       wrap(git, `git checkout ${branch}`, (g) => g.checkout(branch)),
-    checkoutBranch: (branch: string, startPoint: string) =>
-      wrap(git, `git checkout -b ${branch} ${startPoint}`, (g) =>
-        g.checkoutBranch(branch, startPoint)
+    checkoutBranch: (branch: string, baseBranch: string) =>
+      wrap(git, `git checkout -b ${branch} ${baseBranch}`, (g) =>
+        g.checkoutBranch(branch, baseBranch)
       ),
   };
 }

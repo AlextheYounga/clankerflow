@@ -25,6 +25,7 @@ Body content 1`;
 id: '002'
 title: Test Ticket 2
 status: IN_PROGRESS
+branch: feature/ticket-002
 worktree: some-path
 ---
 Body content 2`;
@@ -44,6 +45,13 @@ Body content 2`;
     const result = await ticketCtx.get({ id: "001" });
     assert.strictEqual(result.ok, true);
     assert.strictEqual(result.ticket?.title, "Test Ticket 1");
+    assert.strictEqual(result.ticket?.branch, null);
+  });
+
+  await t.test("should parse branch from ticket frontmatter", async () => {
+    const result = await ticketCtx.get({ id: "002" });
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(result.ticket?.branch, "feature/ticket-002");
   });
 
   await t.test(
