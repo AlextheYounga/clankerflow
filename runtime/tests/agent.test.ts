@@ -28,7 +28,7 @@ test("agent.run emits session start and preserves compatibility result shape", a
       async create() {
         return { id: "sess_abc" };
       },
-      async chat() {
+      async prompt() {
         return {
           id: "msg_1",
           parts: [{ type: "text", text: "done" }],
@@ -42,17 +42,20 @@ test("agent.run emits session start and preserves compatibility result shape", a
       },
     },
     event: {
-      async list() {
+      async subscribe() {
         return [];
       },
     },
   };
+
+  const controller = new AbortController();
 
   const agent = createAgent({
     yolo: false,
     runId: 101,
     runtimeEnv: "host",
     workspaceRoot: "/tmp/project",
+    signal: controller.signal,
     emitEvent(name, payload) {
       events.push({ name, payload });
     },
@@ -85,31 +88,34 @@ test("agent messages/events/cancel delegate to sdk client", async () => {
       async create() {
         return { id: "sess_unused" };
       },
-      async chat() {
+      async prompt() {
         return { id: "msg_unused" };
       },
-      async messages(sessionId: string) {
-        calls.push(`messages:${sessionId}`);
+      async messages(input: { path: { id: string } }) {
+        calls.push(`messages:${input.path.id}`);
         return [{ id: "m1" }];
       },
-      async abort(sessionId: string) {
-        calls.push(`abort:${sessionId}`);
+      async abort(input: { path: { id: string } }) {
+        calls.push(`abort:${input.path.id}`);
         return true;
       },
     },
     event: {
-      async list() {
+      async subscribe() {
         calls.push("events");
-        return ["event"];
+        return [{ properties: { sessionID: "sess_1" } }, "event"];
       },
     },
   };
+
+  const controller = new AbortController();
 
   const agent = createAgent({
     yolo: false,
     runId: 202,
     runtimeEnv: "host",
     workspaceRoot: "/tmp/project",
+    signal: controller.signal,
     emitEvent(_name, _payload) {
       return undefined;
     },
@@ -131,7 +137,7 @@ test("agent messages/events/cancel delegate to sdk client", async () => {
   });
   assert.deepEqual(events, {
     session_id: "sess_1",
-    stream: ["event"],
+    stream: [{ properties: { sessionID: "sess_1" } }],
   });
   assert.deepEqual(cancel, {
     session_id: "sess_1",

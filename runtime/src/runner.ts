@@ -133,6 +133,7 @@ class Runner {
       runId: payload.run_id,
       runtimeEnv: payload.runtime_env,
       workspaceRoot,
+      signal,
       emitEvent,
     });
 

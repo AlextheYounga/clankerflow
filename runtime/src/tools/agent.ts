@@ -11,13 +11,13 @@ type JsonObject = Record<string, unknown>;
 
 interface SessionClient {
   create(input?: JsonObject): Promise<unknown>;
-  chat(sessionId: string, input: JsonObject): Promise<unknown>;
-  messages(sessionId: string): Promise<unknown>;
-  abort(sessionId: string): Promise<unknown>;
+  prompt(input: JsonObject): Promise<unknown>;
+  messages(input: JsonObject): Promise<unknown>;
+  abort(input: JsonObject): Promise<unknown>;
 }
 
 interface EventClient {
-  list(): Promise<unknown>;
+  subscribe(input?: JsonObject): Promise<unknown>;
 }
 
 interface OpenCodeClient {
@@ -43,6 +43,7 @@ export interface AgentOptions {
   runId: number;
   runtimeEnv: RuntimeEnv;
   workspaceRoot: string;
+  signal: AbortSignal;
   emitEvent(name: string, payload: Record<string, unknown>): void;
   createClient?: (baseUrl: string) => OpenCodeClient;
   loadSettings?: (workspaceRoot: string) => Promise<RuntimeSettings>;
@@ -58,7 +59,9 @@ export function createAgent(options: AgentOptions): AgentContext {
       try {
         const client = await runtime.client();
         const prompt = requirePrompt(input.prompt);
-        const session = await client.session.create();
+        const session = await abortable(options.signal, () =>
+          client.session.create(createSessionPayload(input))
+        );
         const sessionId =
           getString(session, "id") ?? getString(session, "sessionID");
         if (sessionId === null) {
@@ -70,11 +73,13 @@ export function createAgent(options: AgentOptions): AgentContext {
           session_id: sessionId,
         });
 
-        const body = buildChatInput(input, prompt, options.yolo);
-        const message = await client.session.chat(sessionId, body);
+        const request = buildPromptRequest(input, sessionId, prompt, options.yolo);
+        const message = await abortable(options.signal, () =>
+          client.session.prompt(request)
+        );
         const output =
-          messageText(message) ??
-          (await latestAssistantText(client, sessionId)) ??
+          promptOutput(message) ??
+          (await latestAssistantText(client, sessionId, options.signal)) ??
           "";
 
         return {
@@ -94,19 +99,28 @@ export function createAgent(options: AgentOptions): AgentContext {
 
     async events(sessionId: string): Promise<Record<string, unknown>> {
       const client = await runtime.client();
-      const stream = await client.event.list();
-      return { session_id: sessionId, stream };
+      const rawStream = await abortable(options.signal, () =>
+        client.event.subscribe()
+      );
+      return {
+        session_id: sessionId,
+        stream: filterEventsBySession(rawStream, sessionId),
+      };
     },
 
     async messages(sessionId: string): Promise<Record<string, unknown>> {
       const client = await runtime.client();
-      const messages = await client.session.messages(sessionId);
+      const messages = await abortable(options.signal, () =>
+        client.session.messages({ path: { id: sessionId } })
+      );
       return { session_id: sessionId, messages };
     },
 
     async cancel(sessionId: string): Promise<Record<string, unknown>> {
       const client = await runtime.client();
-      const result = await client.session.abort(sessionId);
+      const result = await abortable(options.signal, () =>
+        client.session.abort({ path: { id: sessionId } })
+      );
       return { session_id: sessionId, result };
     },
   };
@@ -180,14 +194,19 @@ function requirePrompt(prompt: unknown): string {
   throw new Error("agent.run requires a non-empty prompt");
 }
 
-function buildChatInput(
+function buildPromptRequest(
   input: Record<string, unknown>,
+  sessionId: string,
   prompt: string,
-  yolo: boolean
+  isYolo: boolean
 ): JsonObject {
-  const body: JsonObject = {
-    parts: [{ type: "text", text: prompt }],
+  const request: JsonObject = {
+    path: { id: sessionId },
+    body: {
+      parts: [{ type: "text", text: prompt }],
+    },
   };
+  const body = request.body as JsonObject;
 
   if (typeof input.system === "string") {
     body.system = input.system;
@@ -223,18 +242,34 @@ function buildChatInput(
     body.modelID = input.modelID;
   }
 
-  if (yolo && typeof body.mode !== "string") {
+  if (typeof input.title === "string" && input.title.trim().length > 0) {
+    request.create = { title: input.title };
+  }
+
+  if (isYolo && typeof body.mode !== "string") {
     body.mode = "build";
   }
 
-  return body;
+  return request;
+}
+
+function createSessionPayload(input: Record<string, unknown>): JsonObject {
+  const title = typeof input.title === "string" ? input.title.trim() : "";
+  if (title.length === 0) {
+    return {};
+  }
+
+  return { body: { title } };
 }
 
 async function latestAssistantText(
   client: OpenCodeClient,
-  sessionId: string
+  sessionId: string,
+  signal: AbortSignal
 ): Promise<string | null> {
-  const response = await client.session.messages(sessionId);
+  const response = await abortable(signal, () =>
+    client.session.messages({ path: { id: sessionId } })
+  );
   if (!Array.isArray(response)) {
     return null;
   }
@@ -243,9 +278,25 @@ async function latestAssistantText(
   const assistant = responseEntries
     .slice()
     .reverse()
-    .find((entry) => getString(entry, "role") === "assistant");
+    .find((entry) => getMessageRole(entry) === "assistant");
 
   return messageText(assistant);
+}
+
+function promptOutput(promptResponse: unknown): string | null {
+  if (!isRecord(promptResponse)) {
+    return null;
+  }
+
+  const info = promptResponse.info;
+  if (isRecord(info)) {
+    const infoContent = getString(info, "content") ?? getString(info, "text");
+    if (infoContent !== null && infoContent.length > 0) {
+      return infoContent;
+    }
+  }
+
+  return messageText(promptResponse);
 }
 
 function messageText(message: unknown): string | null {
@@ -286,6 +337,87 @@ function getString(record: unknown, key: string): string | null {
   const value = record[key];
   return typeof value === "string" ? value : null;
 }
+
+function getMessageRole(entry: Record<string, unknown>): string | null {
+  const direct = getString(entry, "role");
+  if (direct !== null) {
+    return direct;
+  }
+
+  if (isRecord(entry.info)) {
+    return getString(entry.info, "role");
+  }
+
+  return null;
+}
+
+function filterEventsBySession(stream: unknown, sessionId: string): unknown {
+  if (Array.isArray(stream)) {
+    return stream.filter((event) => eventSessionId(event) === sessionId);
+  }
+
+  if (isAsyncIterable(stream)) {
+    return filterEventStream(stream, sessionId);
+  }
+
+  return stream;
+}
+
+async function* filterEventStream(
+  stream: AsyncIterable<unknown>,
+  sessionId: string
+): AsyncIterable<unknown> {
+  for await (const event of stream) {
+    if (eventSessionId(event) === sessionId) {
+      yield event;
+    }
+  }
+}
+
+function eventSessionId(event: unknown): string | null {
+  if (!isRecord(event)) {
+    return null;
+  }
+
+  if (isRecord(event.properties)) {
+    return getString(event.properties, "sessionID");
+  }
+
+  return null;
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Symbol.asyncIterator in value
+  );
+}
+
+async function abortable<T>(
+  signal: AbortSignal,
+  operation: () => Promise<T>
+): Promise<T> {
+  if (signal.aborted) {
+    throw new Error("operation cancelled");
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(new Error("operation cancelled"));
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    operation()
+      .then(resolve)
+      .catch(reject)
+      .finally(() => {
+        signal.removeEventListener("abort", onAbort);
+      });
+  });
+}
+
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
