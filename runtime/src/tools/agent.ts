@@ -176,9 +176,13 @@ function requirePrompt(prompt: unknown): string {
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
+  if (!(error instanceof Error)) {
+    return String(error);
   }
 
-  return String(error);
+  if (error.cause instanceof Error) {
+    return `${error.message}: ${error.cause.message}`;
+  }
+
+  return error.message;
 }

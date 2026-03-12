@@ -85,6 +85,62 @@ test("agent.run emits session start and preserves compatibility result shape", a
   ]);
 });
 
+test("agent.run returns ok:false with cause detail when session.create fetch fails", async () => {
+  const fetchError = new TypeError("fetch failed", {
+    cause: new Error("connect ECONNREFUSED 127.0.0.1:4096"),
+  });
+
+  const fakeClient = {
+    session: {
+      create() {
+        return Promise.reject(fetchError);
+      },
+      prompt() {
+        return Promise.resolve({});
+      },
+      messages() {
+        return Promise.resolve([]);
+      },
+      abort() {
+        return Promise.resolve(true);
+      },
+    },
+    event: {
+      subscribe() {
+        return Promise.resolve([]);
+      },
+    },
+  };
+
+  const controller = new AbortController();
+
+  const agent = createAgent({
+    yolo: false,
+    runId: 303,
+    runtimeEnv: "host",
+    workspaceRoot: "/tmp/project",
+    signal: controller.signal,
+    emitEvent() {},
+    createClient() {
+      return fakeClient as unknown as OpencodeClient;
+    },
+    loadSettings() {
+      return Promise.resolve({
+        opencode: { server_url: "http://127.0.0.1:4096" },
+      });
+    },
+  });
+
+  const result = await agent.run({ prompt: "hello" });
+
+  assert.equal(result.ok, false);
+  const errorStr = result.error as string;
+  assert.ok(
+    errorStr.includes("ECONNREFUSED"),
+    `expected error to include cause detail, got: "${errorStr}"`
+  );
+});
+
 test("agent messages/events/cancel delegate to sdk client", async () => {
   const calls: string[] = [];
   const fakeClient = {
