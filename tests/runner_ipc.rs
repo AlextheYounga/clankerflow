@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use agentkata::core::embeds::copy_kit;
+use agentkata::core::opencode::OpencodeService;
 use agentkata::core::runner::ipc_loop::{IpcLoopContext, handle_runner_line};
 use agentkata::core::runner::protocol::LoopControl;
 use agentkata::core::runner::signal::CancelState;
@@ -12,6 +13,7 @@ use agentkata::db::entities::workflow_run::{RunStatus, WorkflowEnv};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde_json::json;
 use tempfile::TempDir;
+use tokio::io;
 
 #[tokio::test]
 async fn handle_runner_line_records_parse_error_for_invalid_json() {
@@ -19,7 +21,10 @@ async fn handle_runner_line_records_parse_error_for_invalid_json() {
     copy_kit(project.path(), false).unwrap();
     let ctx = test_ipc_context(&project).await;
 
-    let (control, status) = handle_runner_line(&ctx, "not json").await.unwrap();
+    let mut sink = io::sink();
+    let (control, status) = handle_runner_line(&ctx, &mut sink, "not json")
+        .await
+        .unwrap();
 
     assert_eq!(control, LoopControl::Continue);
     assert_eq!(status, None);
@@ -64,7 +69,8 @@ async fn handle_runner_line_persists_run_failed_payload_with_error_details() {
         }
     });
 
-    let (control, status) = handle_runner_line(&ctx, &message.to_string())
+    let mut sink = io::sink();
+    let (control, status) = handle_runner_line(&ctx, &mut sink, &message.to_string())
         .await
         .unwrap();
 
@@ -97,5 +103,12 @@ async fn test_ipc_context(project: &TempDir) -> IpcLoopContext {
         cancelled: AtomicBool::new(false),
         force_kill: AtomicBool::new(false),
     });
-    IpcLoopContext { db, run_id, cancel }
+    let opencode = OpencodeService::from_project_root(project.path()).unwrap();
+
+    IpcLoopContext {
+        db,
+        run_id,
+        cancel,
+        opencode,
+    }
 }

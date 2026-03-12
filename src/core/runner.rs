@@ -18,6 +18,7 @@ use tokio::time::timeout;
 
 use crate::app::types::RuntimeEnv;
 use crate::core::codebase_id;
+use crate::core::opencode::OpencodeService;
 use crate::db::connection::connect;
 use crate::db::entities::workflow_run::RunStatus;
 
@@ -89,7 +90,14 @@ impl WorkflowRunner {
             force_kill: AtomicBool::new(false),
         });
 
-        Ok(IpcLoopContext { db, run_id, cancel })
+        let opencode = OpencodeService::from_project_root(args.project_root)?;
+
+        Ok(IpcLoopContext {
+            db,
+            run_id,
+            cancel,
+            opencode,
+        })
     }
 
     async fn spawn_process(

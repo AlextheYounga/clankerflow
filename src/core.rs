@@ -2,6 +2,7 @@ pub mod codebase_id;
 pub mod docker;
 pub mod embeds;
 pub mod ipc;
+pub mod opencode;
 pub mod project;
 pub mod runner;
 pub mod settings;

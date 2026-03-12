@@ -1,14 +1,3 @@
-import type {
-  OpencodeClient,
-  SessionMessagesResponse,
-  SessionPromptResponse,
-} from "@opencode-ai/sdk";
-
-import type { RuntimeEnv } from "../../protocol.ts";
-export type { OpencodeClient };
-export type { SessionMessagesResponse, SessionPromptResponse };
-export type JsonObject = Record<string, unknown>;
-
 export interface AgentContext {
   run(input: Record<string, unknown>): Promise<Record<string, unknown>>;
   events(sessionId: string): Promise<Record<string, unknown>>;
@@ -19,10 +8,11 @@ export interface AgentContext {
 export interface AgentOptions {
   yolo: boolean;
   runId: number;
-  runtimeEnv: RuntimeEnv;
-  workspaceRoot: string;
-  serverUrl: () => Promise<string>;
   signal: AbortSignal;
   emitEvent(name: string, payload: Record<string, unknown>): void;
-  createClient?: (baseUrl: string) => OpencodeClient;
+  invokeCapability(
+    name: string,
+    payload: Record<string, unknown>,
+    signal?: AbortSignal
+  ): Promise<Record<string, unknown>>;
 }

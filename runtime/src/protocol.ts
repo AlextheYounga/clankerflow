@@ -1,6 +1,11 @@
 export type RuntimeEnv = "host" | "container";
 
-export type IpcMessageKind = "command" | "event" | "response" | "error";
+export type IpcMessageKind =
+  | "command"
+  | "event"
+  | "request"
+  | "response"
+  | "error";
 
 export interface IpcMessage {
   v: "v1";

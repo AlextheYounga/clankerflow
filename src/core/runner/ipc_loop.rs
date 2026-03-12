@@ -8,6 +8,7 @@ use tokio::io::{self as tokio_io, AsyncBufReadExt, AsyncWrite, BufReader};
 use tokio::net::TcpStream;
 
 use crate::core::ipc::Message;
+use crate::core::opencode::OpencodeService;
 use crate::db::entities::workflow_run::RunStatus;
 
 use super::WorkflowArgs;
@@ -19,6 +20,7 @@ pub struct IpcLoopContext {
     pub db: DatabaseConnection,
     pub run_id: i64,
     pub cancel: Arc<CancelState>,
+    pub opencode: OpencodeService,
 }
 
 pub async fn send_start_run(
@@ -70,7 +72,7 @@ pub async fn drive_ipc_loop(
             break;
         };
 
-        let (loop_control, status) = handle_runner_line(ctx, &line).await?;
+        let (loop_control, status) = handle_runner_line(ctx, ipc_write, &line).await?;
         if let Some(status) = status {
             final_status = status;
         }
@@ -84,6 +86,7 @@ pub async fn drive_ipc_loop(
 
 pub async fn handle_runner_line(
     ctx: &IpcLoopContext,
+    ipc_write: &mut (impl AsyncWrite + Unpin),
     line: &str,
 ) -> Result<(LoopControl, Option<RunStatus>)> {
     let trimmed_line = line.trim();
@@ -106,6 +109,14 @@ pub async fn handle_runner_line(
     };
 
     match message.kind.as_str() {
+        "request" => {
+            let response = match ctx.opencode.dispatch(&message.name, &message.payload).await {
+                Ok(payload) => Message::response(message.id, message.name, payload),
+                Err(error) => Message::error_response(message.id, message.name, error.to_string()),
+            };
+            write_message(ipc_write, &response).await?;
+            Ok((LoopControl::Continue, None))
+        }
         "event" => {
             append_run_event(&ctx.db, ctx.run_id, &message.name, message.payload.clone()).await?;
             persist_session_from_event(&ctx.db, ctx.run_id, &message).await?;

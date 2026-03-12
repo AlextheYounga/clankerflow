@@ -1,73 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { OpencodeClient } from "@opencode-ai/sdk";
-
-import { createAgent, normalizeServerUrl } from "../src/tools/agent.ts";
-
-const FAKE_SERVER_URL = () => Promise.resolve("http://127.0.0.1:4096");
-
-test("normalizeServerUrl rewrites loopback hosts in container mode", () => {
-  assert.equal(
-    normalizeServerUrl("http://127.0.0.1:4096", "container"),
-    "http://host.docker.internal:4096"
-  );
-  assert.equal(
-    normalizeServerUrl("http://localhost:4096", "container"),
-    "http://host.docker.internal:4096"
-  );
-});
-
-test("normalizeServerUrl keeps host urls in host mode", () => {
-  assert.equal(
-    normalizeServerUrl("http://127.0.0.1:4096", "host"),
-    "http://127.0.0.1:4096"
-  );
-});
+import { createAgent } from "../src/tools/agent.ts";
 
 test("agent.run emits session start and preserves compatibility result shape", async () => {
   const events: { name: string; payload: Record<string, unknown> }[] = [];
-  const fakeClient = {
-    session: {
-      create() {
-        return Promise.resolve({ data: { id: "sess_abc" } });
-      },
-      prompt() {
-        return Promise.resolve({
-          data: {
-            info: { id: "msg_1" },
-            parts: [{ type: "text", text: "done" }],
-          },
-        });
-      },
-      messages() {
-        return Promise.resolve({ data: [] });
-      },
-      abort() {
-        return Promise.resolve({ data: true });
-      },
-    },
-    event: {
-      subscribe() {
-        return Promise.resolve([]);
-      },
-    },
-  };
-
-  const controller = new AbortController();
+  const calls: { name: string; payload: Record<string, unknown> }[] = [];
 
   const agent = createAgent({
     yolo: false,
     runId: 101,
-    runtimeEnv: "host",
-    workspaceRoot: "/tmp/project",
-    serverUrl: FAKE_SERVER_URL,
-    signal: controller.signal,
+    signal: new AbortController().signal,
     emitEvent(name, payload) {
       events.push({ name, payload });
     },
-    createClient() {
-      return fakeClient as unknown as OpencodeClient;
+    invokeCapability(name, payload) {
+      calls.push({ name, payload });
+      return Promise.resolve({
+        output: "done",
+        session_id: "sess_abc",
+        message_id: "msg_1",
+      });
     },
   });
 
@@ -77,6 +30,12 @@ test("agent.run emits session start and preserves compatibility result shape", a
   assert.equal(result.output, "done");
   assert.equal(result.session_id, "sess_abc");
   assert.equal(result.message_id, "msg_1");
+  assert.deepEqual(calls, [
+    {
+      name: "opencode_run",
+      payload: { prompt: "hello", yolo: false },
+    },
+  ]);
   assert.deepEqual(events, [
     {
       name: "agent_session_started",
@@ -86,42 +45,15 @@ test("agent.run emits session start and preserves compatibility result shape", a
 });
 
 test("agent.run returns ok:false with error message on failure", async () => {
-  const fakeClient = {
-    session: {
-      create() {
-        return Promise.reject(new Error("server exploded"));
-      },
-      prompt() {
-        return Promise.resolve({});
-      },
-      messages() {
-        return Promise.resolve([]);
-      },
-      abort() {
-        return Promise.resolve(true);
-      },
-    },
-    event: {
-      subscribe() {
-        return Promise.resolve([]);
-      },
-    },
-  };
-
-  const controller = new AbortController();
-
   const agent = createAgent({
     yolo: false,
     runId: 303,
-    runtimeEnv: "host",
-    workspaceRoot: "/tmp/project",
-    serverUrl: FAKE_SERVER_URL,
-    signal: controller.signal,
+    signal: new AbortController().signal,
     emitEvent() {
-      // noop — this test does not inspect events
+      return undefined;
     },
-    createClient() {
-      return fakeClient as unknown as OpencodeClient;
+    invokeCapability() {
+      return Promise.reject(new Error("server exploded"));
     },
   });
 
@@ -136,46 +68,19 @@ test("agent.run returns ok:false with error message on failure", async () => {
 });
 
 test("agent.run chains error.cause into error message", async () => {
-  const fetchError = new TypeError("fetch failed", {
-    cause: new Error("connect ECONNREFUSED 127.0.0.1:9999"),
-  });
-
-  const fakeClient = {
-    session: {
-      create() {
-        return Promise.reject(fetchError);
-      },
-      prompt() {
-        return Promise.resolve({});
-      },
-      messages() {
-        return Promise.resolve([]);
-      },
-      abort() {
-        return Promise.resolve(true);
-      },
-    },
-    event: {
-      subscribe() {
-        return Promise.resolve([]);
-      },
-    },
-  };
-
-  const controller = new AbortController();
-
   const agent = createAgent({
     yolo: false,
     runId: 404,
-    runtimeEnv: "host",
-    workspaceRoot: "/tmp/project",
-    serverUrl: () => Promise.resolve("http://127.0.0.1:9999"),
-    signal: controller.signal,
+    signal: new AbortController().signal,
     emitEvent() {
-      // noop — this test does not inspect events
+      return undefined;
     },
-    createClient() {
-      return fakeClient as unknown as OpencodeClient;
+    invokeCapability() {
+      return Promise.reject(
+        new TypeError("request failed", {
+          cause: new Error("connect ECONNREFUSED 127.0.0.1:9999"),
+        })
+      );
     },
   });
 
@@ -184,8 +89,8 @@ test("agent.run chains error.cause into error message", async () => {
   assert.equal(result.ok, false);
   const errorStr = result.error as string;
   assert.ok(
-    errorStr.includes("fetch failed"),
-    `expected 'fetch failed' in error, got: "${errorStr}"`
+    errorStr.includes("request failed"),
+    `expected 'request failed' in error, got: "${errorStr}"`
   );
   assert.ok(
     errorStr.includes("ECONNREFUSED"),
@@ -193,55 +98,40 @@ test("agent.run chains error.cause into error message", async () => {
   );
 });
 
-test("agent messages/events/cancel delegate to sdk client", async () => {
+test("agent messages/events/cancel invoke backend capabilities", async () => {
   const calls: string[] = [];
-  const fakeClient = {
-    session: {
-      create() {
-        return Promise.resolve({ data: { id: "sess_unused" } });
-      },
-      prompt() {
-        return Promise.resolve({
-          data: {
-            info: { id: "msg_unused" },
-            parts: [],
-          },
-        });
-      },
-      messages(input: { path: { id: string } }) {
-        calls.push(`messages:${input.path.id}`);
-        return Promise.resolve({ data: [{ id: "m1" }] });
-      },
-      abort(input: { path: { id: string } }) {
-        calls.push(`abort:${input.path.id}`);
-        return Promise.resolve({ data: true });
-      },
-    },
-    event: {
-      subscribe() {
-        calls.push("events");
-        return Promise.resolve([
-          { properties: { sessionID: "sess_1" } },
-          "event",
-        ]);
-      },
-    },
-  };
-
-  const controller = new AbortController();
-
   const agent = createAgent({
     yolo: false,
     runId: 202,
-    runtimeEnv: "host",
-    workspaceRoot: "/tmp/project",
-    serverUrl: FAKE_SERVER_URL,
-    signal: controller.signal,
-    emitEvent(_name, _payload) {
+    signal: new AbortController().signal,
+    emitEvent() {
       return undefined;
     },
-    createClient() {
-      return fakeClient as unknown as OpencodeClient;
+    invokeCapability(name, payload) {
+      calls.push(`${name}:${String(payload.session_id ?? "")}`);
+      switch (name) {
+        case "opencode_messages": {
+          return Promise.resolve({
+            session_id: payload.session_id,
+            messages: [{ id: "m1" }],
+          });
+        }
+        case "opencode_events": {
+          return Promise.resolve({
+            session_id: payload.session_id,
+            stream: [{ type: "session.idle" }],
+          });
+        }
+        case "opencode_cancel": {
+          return Promise.resolve({
+            session_id: payload.session_id,
+            result: true,
+          });
+        }
+        default: {
+          throw new Error(`unexpected capability: ${name}`);
+        }
+      }
     },
   });
 
@@ -255,11 +145,15 @@ test("agent messages/events/cancel delegate to sdk client", async () => {
   });
   assert.deepEqual(events, {
     session_id: "sess_1",
-    stream: [{ properties: { sessionID: "sess_1" } }],
+    stream: [{ type: "session.idle" }],
   });
   assert.deepEqual(cancel, {
     session_id: "sess_1",
     result: true,
   });
-  assert.deepEqual(calls, ["messages:sess_1", "events", "abort:sess_1"]);
+  assert.deepEqual(calls, [
+    "opencode_messages:sess_1",
+    "opencode_events:sess_1",
+    "opencode_cancel:sess_1",
+  ]);
 });
