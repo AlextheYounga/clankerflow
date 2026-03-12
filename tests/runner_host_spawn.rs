@@ -7,22 +7,6 @@ use serde_json::Value;
 
 use support::{event_payloads, setup_project, stored_run, workflow_path};
 
-// Exercises the real failure path: agent.run calls the OpenCode SDK against a
-// port with nothing listening, so fetch rejects, agent.run returns ok:false,
-// and the workflow re-throws as "Planner agent failed: fetch failed".
-const AGENT_FETCH_ERROR_WORKFLOW: &str = r#"
-export const meta = {
-  id: "agent-fetch-error",
-  name: "Agent Fetch Error",
-  runtime: "host",
-};
-
-export default async function run(_ctx, tools) {
-  const result = await tools.agent.run({ prompt: "do something" });
-  if (!result.ok) throw new Error(`Planner agent failed: ${result.error}`);
-}
-"#;
-
 const SUCCESS_WORKFLOW: &str = r#"
 export const meta = {
   id: "demo",
@@ -73,42 +57,6 @@ async fn run_persists_workflow_progress_from_spawned_host_runner() {
             .and_then(Value::as_str)
             .is_some_and(|message| message.contains("workflow log from integration test"))
     }));
-}
-
-#[tokio::test]
-async fn run_records_failed_status_and_error_details_when_agent_cannot_reach_opencode() {
-    let project = setup_project("agent-fetch-error", AGENT_FETCH_ERROR_WORKFLOW);
-    let workflow_path = workflow_path(project.path(), "agent-fetch-error");
-
-    unsafe {
-        std::env::set_var("AGENTKATA_HOST_RUNNER_BUNDLE", test_runner_bundle());
-    }
-
-    let args = WorkflowArgs {
-        project_root: project.path(),
-        workflow_name: "agent-fetch-error",
-        workflow_path: &workflow_path,
-        env: RuntimeEnv::Host,
-        yolo: false,
-    };
-
-    let final_status = WorkflowRunner::run(&args).await.unwrap();
-    let run = stored_run(project.path(), "agent-fetch-error").await;
-    let run_failed = event_payloads(project.path(), run.id, "run_failed").await;
-
-    assert_eq!(final_status, RunStatus::Failed);
-    assert_eq!(run.status, RunStatus::Failed);
-    assert!(run.completed_at.is_some());
-
-    assert_eq!(run_failed.len(), 1);
-    let payload = &run_failed[0];
-    assert_eq!(payload["error_code"], "WORKFLOW_ERROR");
-    assert!(
-        payload["message"]
-            .as_str()
-            .is_some_and(|m| m.contains("ECONNREFUSED")),
-        "expected ECONNREFUSED cause detail in run_failed message, got: {payload}"
-    );
 }
 
 fn test_runner_bundle() -> &'static str {

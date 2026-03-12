@@ -5,6 +5,8 @@ import type { OpencodeClient } from "@opencode-ai/sdk";
 
 import { createAgent, normalizeServerUrl } from "../src/tools/agent.ts";
 
+const FAKE_SERVER_URL = () => Promise.resolve("http://127.0.0.1:4096");
+
 test("normalizeServerUrl rewrites loopback hosts in container mode", () => {
   assert.equal(
     normalizeServerUrl("http://127.0.0.1:4096", "container"),
@@ -57,17 +59,13 @@ test("agent.run emits session start and preserves compatibility result shape", a
     runId: 101,
     runtimeEnv: "host",
     workspaceRoot: "/tmp/project",
+    serverUrl: FAKE_SERVER_URL,
     signal: controller.signal,
     emitEvent(name, payload) {
       events.push({ name, payload });
     },
     createClient() {
       return fakeClient as unknown as OpencodeClient;
-    },
-    loadSettings() {
-      return Promise.resolve({
-        opencode: { server_url: "http://127.0.0.1:4096" },
-      });
     },
   });
 
@@ -85,9 +83,59 @@ test("agent.run emits session start and preserves compatibility result shape", a
   ]);
 });
 
-test("agent.run returns ok:false with cause detail when session.create fetch fails", async () => {
+test("agent.run returns ok:false with error message on failure", async () => {
+  const fakeClient = {
+    session: {
+      create() {
+        return Promise.reject(new Error("server exploded"));
+      },
+      prompt() {
+        return Promise.resolve({});
+      },
+      messages() {
+        return Promise.resolve([]);
+      },
+      abort() {
+        return Promise.resolve(true);
+      },
+    },
+    event: {
+      subscribe() {
+        return Promise.resolve([]);
+      },
+    },
+  };
+
+  const controller = new AbortController();
+
+  const agent = createAgent({
+    yolo: false,
+    runId: 303,
+    runtimeEnv: "host",
+    workspaceRoot: "/tmp/project",
+    serverUrl: FAKE_SERVER_URL,
+    signal: controller.signal,
+    emitEvent() {
+      // noop — this test does not inspect events
+    },
+    createClient() {
+      return fakeClient as unknown as OpencodeClient;
+    },
+  });
+
+  const result = await agent.run({ prompt: "hello" });
+
+  assert.equal(result.ok, false);
+  const errorStr = result.error as string;
+  assert.ok(
+    errorStr.includes("server exploded"),
+    `expected error message, got: "${errorStr}"`
+  );
+});
+
+test("agent.run chains error.cause into error message", async () => {
   const fetchError = new TypeError("fetch failed", {
-    cause: new Error("connect ECONNREFUSED 127.0.0.1:4096"),
+    cause: new Error("connect ECONNREFUSED 127.0.0.1:9999"),
   });
 
   const fakeClient = {
@@ -116,18 +164,16 @@ test("agent.run returns ok:false with cause detail when session.create fetch fai
 
   const agent = createAgent({
     yolo: false,
-    runId: 303,
+    runId: 404,
     runtimeEnv: "host",
     workspaceRoot: "/tmp/project",
+    serverUrl: () => Promise.resolve("http://127.0.0.1:9999"),
     signal: controller.signal,
-    emitEvent() {},
+    emitEvent() {
+      // noop — this test does not inspect events
+    },
     createClient() {
       return fakeClient as unknown as OpencodeClient;
-    },
-    loadSettings() {
-      return Promise.resolve({
-        opencode: { server_url: "http://127.0.0.1:4096" },
-      });
     },
   });
 
@@ -136,8 +182,12 @@ test("agent.run returns ok:false with cause detail when session.create fetch fai
   assert.equal(result.ok, false);
   const errorStr = result.error as string;
   assert.ok(
+    errorStr.includes("fetch failed"),
+    `expected 'fetch failed' in error, got: "${errorStr}"`
+  );
+  assert.ok(
     errorStr.includes("ECONNREFUSED"),
-    `expected error to include cause detail, got: "${errorStr}"`
+    `expected cause detail in error, got: "${errorStr}"`
   );
 });
 
@@ -178,17 +228,13 @@ test("agent messages/events/cancel delegate to sdk client", async () => {
     runId: 202,
     runtimeEnv: "host",
     workspaceRoot: "/tmp/project",
+    serverUrl: FAKE_SERVER_URL,
     signal: controller.signal,
     emitEvent(_name, _payload) {
       return undefined;
     },
     createClient() {
       return fakeClient as unknown as OpencodeClient;
-    },
-    loadSettings() {
-      return Promise.resolve({
-        opencode: { server_url: "http://127.0.0.1:4096" },
-      });
     },
   });
 

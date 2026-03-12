@@ -151,8 +151,16 @@ async fn update_run_status_for_event(
             Ok((LoopControl::Stop, Some(status)))
         }
         "run_failed" => {
-            let error_code = message.payload.get("error_code").and_then(|v| v.as_str()).unwrap_or("unknown");
-            let msg = message.payload.get("message").and_then(|v| v.as_str()).unwrap_or("(no message)");
+            let error_code = message
+                .payload
+                .get("error_code")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let msg = message
+                .payload
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("(no message)");
             eprintln!("workflow run {run_id} failed: [{error_code}] {msg}");
             set_status(db, run_id, RunStatus::Failed).await?;
             Ok((LoopControl::Stop, Some(RunStatus::Failed)))

@@ -1,12 +1,7 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import { createOpencodeClient } from "@opencode-ai/sdk";
 
 import { normalizeServerUrl } from "./server-url.ts";
-import type { AgentOptions, OpencodeClient, RuntimeSettings } from "./types.ts";
-
-const DEFAULT_OPENCODE_URL = "http://127.0.0.1:4096";
+import type { AgentOptions, OpencodeClient } from "./types.ts";
 
 export function createRuntime(options: AgentOptions): {
   client(): Promise<OpencodeClient>;
@@ -26,28 +21,10 @@ export function createRuntime(options: AgentOptions): {
 }
 
 async function createClient(options: AgentOptions): Promise<OpencodeClient> {
-  const loadSettings = options.loadSettings ?? loadRuntimeSettings;
-  const settings = await loadSettings(options.workspaceRoot);
-  const serverUrl = resolveServerUrl(settings);
+  const serverUrl = await options.serverUrl();
   const baseUrl = normalizeServerUrl(serverUrl, options.runtimeEnv);
   const createClientFn = options.createClient ?? createSdkClient;
   return createClientFn(baseUrl);
-}
-
-function resolveServerUrl(settings: RuntimeSettings): string {
-  if (typeof settings.opencode?.server_url === "string") {
-    return settings.opencode.server_url;
-  }
-
-  return DEFAULT_OPENCODE_URL;
-}
-
-async function loadRuntimeSettings(
-  workspaceRoot: string
-): Promise<RuntimeSettings> {
-  const settingsPath = path.join(workspaceRoot, ".agents", "settings.json");
-  const raw = await readFile(settingsPath, "utf8");
-  return JSON.parse(raw) as RuntimeSettings;
 }
 
 function createSdkClient(baseUrl: string): OpencodeClient {

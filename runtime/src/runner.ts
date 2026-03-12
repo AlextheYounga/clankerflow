@@ -6,6 +6,7 @@ import { createGitContext } from "./tools/git.ts";
 import { createTicketContext } from "./tools/tickets.ts";
 import { loadWorkflowModule } from "./loader.ts";
 import { createExec, createLogContext, sleepWithSignal } from "./utils.ts";
+import { createServer, type ManagedServer } from "./server.ts";
 import type { StartRunPayload, CancelRunPayload } from "./protocol.ts";
 
 interface ActiveRun {
@@ -86,20 +87,25 @@ class Runner {
       started_at: new Date().toISOString(),
     });
 
+    let server: ManagedServer | null = null;
     try {
-      await this.runWorkflow(payload, controller);
+      const workspaceRoot = process.cwd();
+      server = createServer(workspaceRoot, controller.signal);
+      await this.runWorkflow(payload, controller, server);
       this.emitStep(payload.run_id, "ok");
       this.emitRunFinished(payload.run_id, "SUCCEEDED");
     } catch (error) {
       this.emitRunError(payload.run_id, error, controller.signal.aborted);
     } finally {
+      server?.close();
       this.activeRuns.delete(payload.run_id);
     }
   }
 
   private async runWorkflow(
     payload: StartRunPayload,
-    controller: AbortController
+    controller: AbortController,
+    server: ManagedServer
   ): Promise<void> {
     const module = await loadWorkflowModule(payload.workflow_path);
     this.emit("log", {
@@ -133,6 +139,7 @@ class Runner {
       runId: payload.run_id,
       runtimeEnv: payload.runtime_env,
       workspaceRoot,
+      serverUrl: () => server.url(),
       signal,
       emitEvent,
     });

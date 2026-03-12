@@ -58,7 +58,7 @@ async fn handle_runner_line_persists_run_failed_payload_with_error_details() {
         "payload": {
             "run_id": ctx.run_id,
             "error_code": "WORKFLOW_ERROR",
-            "message": "Planner agent failed: fetch failed",
+            "message": "Planner agent failed: unexpected error",
             "details": {},
             "failed_at": "2026-03-12T05:50:57.227Z"
         }
@@ -81,7 +81,7 @@ async fn handle_runner_line_persists_run_failed_payload_with_error_details() {
     assert_eq!(events.len(), 1);
     let payload = events[0].data.as_ref().unwrap();
     assert_eq!(payload["error_code"], "WORKFLOW_ERROR");
-    assert_eq!(payload["message"], "Planner agent failed: fetch failed");
+    assert_eq!(payload["message"], "Planner agent failed: unexpected error");
     assert_eq!(payload["failed_at"], "2026-03-12T05:50:57.227Z");
 }
 

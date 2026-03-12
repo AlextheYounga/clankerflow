@@ -97,8 +97,6 @@ web UI.
 
 ## Tests
 
-All tests must be offline — no real OpenCode server.
-
 - `src/core/opencode_client.rs` — mock `ureq` responses or use a local HTTP
   test server (e.g. `mockito` crate) to cover: session create, chat, messages
   list, abort.
