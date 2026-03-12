@@ -30,19 +30,21 @@ test("agent.run emits session start and preserves compatibility result shape", a
   const fakeClient = {
     session: {
       create() {
-        return Promise.resolve({ id: "sess_abc" });
+        return Promise.resolve({ data: { id: "sess_abc" } });
       },
       prompt() {
         return Promise.resolve({
-          id: "msg_1",
-          parts: [{ type: "text", text: "done" }],
+          data: {
+            info: { id: "msg_1" },
+            parts: [{ type: "text", text: "done" }],
+          },
         });
       },
       messages() {
-        return Promise.resolve([]);
+        return Promise.resolve({ data: [] });
       },
       abort() {
-        return Promise.resolve(true);
+        return Promise.resolve({ data: true });
       },
     },
     event: {
@@ -196,18 +198,23 @@ test("agent messages/events/cancel delegate to sdk client", async () => {
   const fakeClient = {
     session: {
       create() {
-        return Promise.resolve({ id: "sess_unused" });
+        return Promise.resolve({ data: { id: "sess_unused" } });
       },
       prompt() {
-        return Promise.resolve({ id: "msg_unused" });
+        return Promise.resolve({
+          data: {
+            info: { id: "msg_unused" },
+            parts: [],
+          },
+        });
       },
       messages(input: { path: { id: string } }) {
         calls.push(`messages:${input.path.id}`);
-        return Promise.resolve([{ id: "m1" }]);
+        return Promise.resolve({ data: [{ id: "m1" }] });
       },
       abort(input: { path: { id: string } }) {
         calls.push(`abort:${input.path.id}`);
-        return Promise.resolve(true);
+        return Promise.resolve({ data: true });
       },
     },
     event: {

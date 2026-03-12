@@ -1,5 +1,9 @@
 import { abortable } from "./abort.ts";
-import type { OpencodeClient } from "./types.ts";
+import type {
+  OpencodeClient,
+  SessionMessagesResponse,
+  SessionPromptResponse,
+} from "./types.ts";
 
 export async function latestAssistantText(
   client: OpencodeClient,
@@ -7,35 +11,21 @@ export async function latestAssistantText(
   signal: AbortSignal
 ): Promise<string | null> {
   const response = await abortable(signal, () =>
-    client.session.messages({ path: { id: sessionId } })
+    client.session.messages<true>({ path: { id: sessionId } })
   );
 
-  if (!Array.isArray(response)) {
-    return null;
-  }
+  const messages = response.data;
 
-  const assistant = response
-    .filter(isRecord)
+  const assistant = messages
     .slice()
     .reverse()
-    .find((entry) => messageRole(entry) === "assistant");
+    .find((entry) => entry.info.role === "assistant");
 
-  return messageText(assistant);
+  return assistant === undefined ? null : messageText(assistant.parts);
 }
 
-export function promptOutput(promptResponse: unknown): string | null {
-  if (!isRecord(promptResponse)) {
-    return null;
-  }
-
-  if (isRecord(promptResponse.info)) {
-    const infoText = readMessageText(promptResponse.info);
-    if (infoText !== null) {
-      return infoText;
-    }
-  }
-
-  return messageText(promptResponse);
+export function promptOutput(promptResponse: SessionPromptResponse): string | null {
+  return messageText(promptResponse.parts);
 }
 
 export function filterEventsBySession(
@@ -53,23 +43,9 @@ export function filterEventsBySession(
   return stream;
 }
 
-function messageText(message: unknown): string | null {
-  if (!isRecord(message)) {
-    return null;
-  }
-
-  const directText = readMessageText(message);
-  if (directText !== null) {
-    return directText;
-  }
-
-  const parts = message.parts;
-  if (!Array.isArray(parts)) {
-    return null;
-  }
-
+function messageText(parts: SessionMessagesResponse[number]["parts"]): string | null {
   const chunks = parts
-    .map((part) => (isRecord(part) ? readString(part.text) : null))
+    .map((part) => (hasText(part) ? readString(part.text) : null))
     .filter((chunk): chunk is string => chunk !== null);
 
   if (chunks.length === 0) {
@@ -79,31 +55,8 @@ function messageText(message: unknown): string | null {
   return chunks.join("\n");
 }
 
-function readMessageText(record: Record<string, unknown>): string | null {
-  const content = readString(record.content);
-  if (content !== null && content.length > 0) {
-    return content;
-  }
-
-  const text = readString(record.text);
-  if (text !== null && text.length > 0) {
-    return text;
-  }
-
-  return null;
-}
-
-function messageRole(record: Record<string, unknown>): string | null {
-  const direct = readString(record.role);
-  if (direct !== null) {
-    return direct;
-  }
-
-  if (isRecord(record.info)) {
-    return readString(record.info.role);
-  }
-
-  return null;
+function hasText(value: unknown): value is { text: unknown } {
+  return isRecord(value) && "text" in value;
 }
 
 async function* filterEventStream(

@@ -1,7 +1,12 @@
-import type { OpencodeClient } from "@opencode-ai/sdk";
+import type {
+  OpencodeClient,
+  SessionMessagesResponse,
+  SessionPromptResponse,
+} from "@opencode-ai/sdk";
 
 import type { RuntimeEnv } from "../../protocol.ts";
 export type { OpencodeClient };
+export type { SessionMessagesResponse, SessionPromptResponse };
 export type JsonObject = Record<string, unknown>;
 
 export interface AgentContext {

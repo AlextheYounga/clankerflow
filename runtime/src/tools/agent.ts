@@ -10,6 +10,7 @@ import type {
   AgentContext,
   AgentOptions,
   OpencodeClient,
+  SessionPromptResponse,
 } from "./agent/types.ts";
 import { abortable } from "./agent/abort.ts";
 
@@ -72,10 +73,10 @@ function createMessagesHandler(
 ): AgentContext["messages"] {
   return async (sessionId) => {
     const client = await getClient();
-    const messages = await abortable(options.signal, () =>
-      client.session.messages({ path: { id: sessionId } })
+    const response = await abortable(options.signal, () =>
+      client.session.messages<true>({ path: { id: sessionId } })
     );
-    return { session_id: sessionId, messages };
+    return { session_id: sessionId, messages: response.data };
   };
 }
 
@@ -85,10 +86,10 @@ function createCancelHandler(
 ): AgentContext["cancel"] {
   return async (sessionId) => {
     const client = await getClient();
-    const result = await abortable(options.signal, () =>
-      client.session.abort({ path: { id: sessionId } })
+    const response = await abortable(options.signal, () =>
+      client.session.abort<true>({ path: { id: sessionId } })
     );
-    return { session_id: sessionId, result };
+    return { session_id: sessionId, result: response.data };
   };
 }
 
@@ -97,10 +98,10 @@ async function startSession(
   client: OpencodeClient,
   input: Record<string, unknown>
 ): Promise<string> {
-  const session = await abortable(options.signal, () =>
-    client.session.create(createSessionPayload(input))
+  const response = await abortable(options.signal, () =>
+    client.session.create<true>(createSessionPayload(input))
   );
-  const sessionId = readSessionId(session);
+  const sessionId = response.data.id;
   options.emitEvent("agent_session_started", {
     run_id: options.runId,
     session_id: sessionId,
@@ -113,17 +114,20 @@ async function sendPrompt(
   client: OpencodeClient,
   sessionId: string,
   input: Record<string, unknown>
-): Promise<unknown> {
+): Promise<SessionPromptResponse> {
   const prompt = requirePrompt(input.prompt);
   const request = buildPromptRequest(input, sessionId, prompt);
-  return abortable(options.signal, () => client.session.prompt(request));
+  const response = await abortable(options.signal, () =>
+    client.session.prompt<true>(request)
+  );
+  return response.data;
 }
 
 async function resolveOutput(
   options: AgentOptions,
   client: OpencodeClient,
   sessionId: string,
-  promptResponse: unknown
+  promptResponse: SessionPromptResponse
 ): Promise<string> {
   return (
     promptOutput(promptResponse) ??
@@ -132,39 +136,8 @@ async function resolveOutput(
   );
 }
 
-function readSessionId(session: unknown): string {
-  if (
-    typeof session === "object" &&
-    session !== null &&
-    "id" in session &&
-    typeof session.id === "string"
-  ) {
-    return session.id;
-  }
-
-  throw new Error("OpenCode session.create did not return an id");
-}
-
-function readMessageId(message: unknown): string | null {
-  if (typeof message !== "object" || message === null) {
-    return null;
-  }
-
-  if ("id" in message && typeof message.id === "string") {
-    return message.id;
-  }
-
-  if (
-    "info" in message &&
-    typeof message.info === "object" &&
-    message.info !== null &&
-    "id" in message.info &&
-    typeof message.info.id === "string"
-  ) {
-    return message.info.id;
-  }
-
-  return null;
+function readMessageId(message: SessionPromptResponse): string {
+  return message.info.id;
 }
 
 function requirePrompt(prompt: unknown): string {
