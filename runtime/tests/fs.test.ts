@@ -29,7 +29,10 @@ test("FsContext: workspace scoping", async (t) => {
   });
 
   await t.test("should prevent path escapes", async () => {
-    await assert.rejects(() => fsCtx.read("../escaped.txt"), /escapes workspace root/);
+    await assert.rejects(
+      () => fsCtx.read("../escaped.txt"),
+      /escapes workspace root/
+    );
   });
 
   await fs.rm(tmpDir, { recursive: true });

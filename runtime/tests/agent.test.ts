@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { OpencodeClient } from "@opencode-ai/sdk";
+
 import { createAgent, normalizeServerUrl } from "../src/tools/agent.ts";
 
 test("normalizeServerUrl rewrites loopback hosts in container mode", () => {
@@ -25,25 +27,25 @@ test("agent.run emits session start and preserves compatibility result shape", a
   const events: { name: string; payload: Record<string, unknown> }[] = [];
   const fakeClient = {
     session: {
-      async create() {
-        return { id: "sess_abc" };
+      create() {
+        return Promise.resolve({ id: "sess_abc" });
       },
-      async prompt() {
-        return {
+      prompt() {
+        return Promise.resolve({
           id: "msg_1",
           parts: [{ type: "text", text: "done" }],
-        };
+        });
       },
-      async messages() {
-        return [];
+      messages() {
+        return Promise.resolve([]);
       },
-      async abort() {
-        return true;
+      abort() {
+        return Promise.resolve(true);
       },
     },
     event: {
-      async subscribe() {
-        return [];
+      subscribe() {
+        return Promise.resolve([]);
       },
     },
   };
@@ -60,10 +62,12 @@ test("agent.run emits session start and preserves compatibility result shape", a
       events.push({ name, payload });
     },
     createClient() {
-      return fakeClient;
+      return fakeClient as unknown as OpencodeClient;
     },
-    async loadSettings() {
-      return { opencode: { server_url: "http://127.0.0.1:4096" } };
+    loadSettings() {
+      return Promise.resolve({
+        opencode: { server_url: "http://127.0.0.1:4096" },
+      });
     },
   });
 
@@ -85,25 +89,28 @@ test("agent messages/events/cancel delegate to sdk client", async () => {
   const calls: string[] = [];
   const fakeClient = {
     session: {
-      async create() {
-        return { id: "sess_unused" };
+      create() {
+        return Promise.resolve({ id: "sess_unused" });
       },
-      async prompt() {
-        return { id: "msg_unused" };
+      prompt() {
+        return Promise.resolve({ id: "msg_unused" });
       },
-      async messages(input: { path: { id: string } }) {
+      messages(input: { path: { id: string } }) {
         calls.push(`messages:${input.path.id}`);
-        return [{ id: "m1" }];
+        return Promise.resolve([{ id: "m1" }]);
       },
-      async abort(input: { path: { id: string } }) {
+      abort(input: { path: { id: string } }) {
         calls.push(`abort:${input.path.id}`);
-        return true;
+        return Promise.resolve(true);
       },
     },
     event: {
-      async subscribe() {
+      subscribe() {
         calls.push("events");
-        return [{ properties: { sessionID: "sess_1" } }, "event"];
+        return Promise.resolve([
+          { properties: { sessionID: "sess_1" } },
+          "event",
+        ]);
       },
     },
   };
@@ -120,10 +127,12 @@ test("agent messages/events/cancel delegate to sdk client", async () => {
       return undefined;
     },
     createClient() {
-      return fakeClient;
+      return fakeClient as unknown as OpencodeClient;
     },
-    async loadSettings() {
-      return { opencode: { server_url: "http://127.0.0.1:4096" } };
+    loadSettings() {
+      return Promise.resolve({
+        opencode: { server_url: "http://127.0.0.1:4096" },
+      });
     },
   });
 

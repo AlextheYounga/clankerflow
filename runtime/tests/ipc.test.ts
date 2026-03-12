@@ -50,7 +50,7 @@ test("IpcTransport connects and exchanges JSON messages over TCP", async () => {
 
   assert.equal(received.length, 1);
   const firstReceived = received[0];
-  assert.ok(firstReceived);
+  assert.notEqual(firstReceived, undefined);
   assert.equal(firstReceived.id, "test_1");
   assert.equal(firstReceived.name, "start_run");
   assert.deepEqual(firstReceived.payload, { run_id: 1 });
@@ -107,7 +107,7 @@ test("line-delimited framing handles partial chunks", async () => {
 
   assert.equal(received.length, 1, "should parse complete message");
   const firstReceived = received[0];
-  assert.ok(firstReceived);
+  assert.notEqual(firstReceived, undefined);
   assert.equal(firstReceived.id, "partial_1");
 
   client.destroy();

@@ -36,17 +36,6 @@ export function parseTicketContent(content: string, filePath: string): Ticket {
   const rawWorktree = frontmatter.worktree;
   const worktree =
     typeof rawWorktree === "string" ? rawWorktree.trim() : "none";
-  const rawBranch = frontmatter.branch;
-  const branchFromFrontmatter =
-    typeof rawBranch === "string" ? rawBranch.trim() : "";
-  const branchFromWorktree =
-    typeof rawWorktree === "string" ? rawWorktree.trim() : "";
-  const branch =
-    branchFromFrontmatter.length > 0
-      ? branchFromFrontmatter
-      : branchFromWorktree.length > 0 && branchFromWorktree !== "none"
-        ? branchFromWorktree
-        : null;
   const rawStatus =
     typeof frontmatter.status === "string" ? frontmatter.status : undefined;
 
@@ -54,12 +43,30 @@ export function parseTicketContent(content: string, filePath: string): Ticket {
     ticketId,
     title,
     status: normalizeTicketStatus(rawStatus),
-    branch,
+    branch: resolveBranch(frontmatter),
     worktree,
     description: body.trim().length > 0 ? body.trim() : null,
     filePath,
     frontmatter,
   };
+}
+
+function resolveBranch(frontmatter: Record<string, unknown>): string | null {
+  const rawBranch = frontmatter.branch;
+  const branchFromFrontmatter =
+    typeof rawBranch === "string" ? rawBranch.trim() : "";
+  if (branchFromFrontmatter.length > 0) {
+    return branchFromFrontmatter;
+  }
+
+  const rawWorktree = frontmatter.worktree;
+  const branchFromWorktree =
+    typeof rawWorktree === "string" ? rawWorktree.trim() : "";
+  if (branchFromWorktree.length > 0 && branchFromWorktree !== "none") {
+    return branchFromWorktree;
+  }
+
+  return null;
 }
 
 export async function parseTicketFile(filePath: string): Promise<Ticket> {

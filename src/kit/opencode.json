@@ -1,5 +1,6 @@
 {
 	"$schema": "https://opencode.ai/config.json",
 	"theme": "system",
-	"autoupdate": false
+	"autoupdate": false,
+	"model": "opencode/big-pickle"
 }

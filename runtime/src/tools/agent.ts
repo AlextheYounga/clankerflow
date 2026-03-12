@@ -3,16 +3,13 @@ import {
   latestAssistantText,
   promptOutput,
 } from "./agent/parsing.ts";
-import {
-  buildPromptRequest,
-  createSessionPayload,
-} from "./agent/payload.ts";
+import { buildPromptRequest, createSessionPayload } from "./agent/payload.ts";
 import { createRuntime } from "./agent/runtime.ts";
 import { normalizeServerUrl } from "./agent/server-url.ts";
 import type {
   AgentContext,
   AgentOptions,
-  OpenCodeClient,
+  OpencodeClient,
 } from "./agent/types.ts";
 import { abortable } from "./agent/abort.ts";
 
@@ -31,7 +28,7 @@ export function createAgent(options: AgentOptions): AgentContext {
 
 function createRunHandler(
   options: AgentOptions,
-  getClient: () => Promise<OpenCodeClient>
+  getClient: () => Promise<OpencodeClient>
 ): AgentContext["run"] {
   return async (input) => {
     try {
@@ -55,7 +52,7 @@ function createRunHandler(
 
 function createEventsHandler(
   options: AgentOptions,
-  getClient: () => Promise<OpenCodeClient>
+  getClient: () => Promise<OpencodeClient>
 ): AgentContext["events"] {
   return async (sessionId) => {
     const client = await getClient();
@@ -71,7 +68,7 @@ function createEventsHandler(
 
 function createMessagesHandler(
   options: AgentOptions,
-  getClient: () => Promise<OpenCodeClient>
+  getClient: () => Promise<OpencodeClient>
 ): AgentContext["messages"] {
   return async (sessionId) => {
     const client = await getClient();
@@ -84,7 +81,7 @@ function createMessagesHandler(
 
 function createCancelHandler(
   options: AgentOptions,
-  getClient: () => Promise<OpenCodeClient>
+  getClient: () => Promise<OpencodeClient>
 ): AgentContext["cancel"] {
   return async (sessionId) => {
     const client = await getClient();
@@ -97,7 +94,7 @@ function createCancelHandler(
 
 async function startSession(
   options: AgentOptions,
-  client: OpenCodeClient,
+  client: OpencodeClient,
   input: Record<string, unknown>
 ): Promise<string> {
   const session = await abortable(options.signal, () =>
@@ -113,18 +110,18 @@ async function startSession(
 
 async function sendPrompt(
   options: AgentOptions,
-  client: OpenCodeClient,
+  client: OpencodeClient,
   sessionId: string,
   input: Record<string, unknown>
 ): Promise<unknown> {
   const prompt = requirePrompt(input.prompt);
-  const request = buildPromptRequest(input, sessionId, prompt, options.yolo);
+  const request = buildPromptRequest(input, sessionId, prompt);
   return abortable(options.signal, () => client.session.prompt(request));
 }
 
 async function resolveOutput(
   options: AgentOptions,
-  client: OpenCodeClient,
+  client: OpencodeClient,
   sessionId: string,
   promptResponse: unknown
 ): Promise<string> {

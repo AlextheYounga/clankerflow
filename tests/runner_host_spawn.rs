@@ -51,14 +51,12 @@ async fn run_persists_workflow_progress_from_spawned_host_runner() {
     assert_eq!(step_started.len(), 1);
     assert_eq!(step_finished.len(), 1);
     assert_eq!(run_finished.len(), 1);
-    assert!(
-        logs.iter().any(|payload| {
-            payload
-                .get("message")
-                .and_then(Value::as_str)
-                .is_some_and(|message| message.contains("workflow log from integration test"))
-        })
-    );
+    assert!(logs.iter().any(|payload| {
+        payload
+            .get("message")
+            .and_then(Value::as_str)
+            .is_some_and(|message| message.contains("workflow log from integration test"))
+    }));
 }
 
 fn test_runner_bundle() -> &'static str {

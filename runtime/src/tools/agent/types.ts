@@ -1,22 +1,8 @@
+import type { OpencodeClient } from "@opencode-ai/sdk";
+
 import type { RuntimeEnv } from "../../protocol.ts";
-
+export type { OpencodeClient };
 export type JsonObject = Record<string, unknown>;
-
-export interface SessionClient {
-  create(input?: JsonObject): Promise<unknown>;
-  prompt(input: JsonObject): Promise<unknown>;
-  messages(input: JsonObject): Promise<unknown>;
-  abort(input: JsonObject): Promise<unknown>;
-}
-
-export interface EventClient {
-  subscribe(input?: JsonObject): Promise<unknown>;
-}
-
-export interface OpenCodeClient {
-  session: SessionClient;
-  event: EventClient;
-}
 
 export interface RuntimeSettings {
   opencode?: {
@@ -38,6 +24,6 @@ export interface AgentOptions {
   workspaceRoot: string;
   signal: AbortSignal;
   emitEvent(name: string, payload: Record<string, unknown>): void;
-  createClient?: (baseUrl: string) => OpenCodeClient;
+  createClient?: (baseUrl: string) => OpencodeClient;
   loadSettings?: (workspaceRoot: string) => Promise<RuntimeSettings>;
 }

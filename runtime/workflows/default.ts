@@ -9,7 +9,7 @@ export const meta: WorkflowMeta = {
 
 export default async function defaultWorkflow(
   ctx: WorkflowContext,
-  tools: WorkflowTools,
+  tools: WorkflowTools
 ) {
   const { agent, log, tickets, git, fs } = tools;
   // Prefer the next open ticket, but allow the caller to pin a specific ticket.
@@ -34,7 +34,10 @@ export default async function defaultWorkflow(
 
   // Provide the agent with the ticket context and a concise completion request.
   const prompt = await fs.read("src/kit/context/roles/builder.md");
-  const updatedPrompt = prompt.replaceAll(`{{ticket.filePath}}`, ticket.filePath);
+  const updatedPrompt = prompt.replaceAll(
+    `{{ticket.filePath}}`,
+    ticket.filePath
+  );
 
   const result = await agent.run({
     title: ticket.title,
@@ -43,7 +46,9 @@ export default async function defaultWorkflow(
 
   // Bubble up failures so the workflow can be retried or handled upstream.
   if (!result.ok) {
-    throw new Error(`Agent failed on ticket ${ticket.ticketId}: ${result.error}`);
+    throw new Error(
+      `Agent failed on ticket ${ticket.ticketId}: ${result.error}`
+    );
   }
 
   // Record the agent output as a ticket comment for traceability.

@@ -1,8 +1,8 @@
 import { abortable } from "./abort.ts";
-import type { OpenCodeClient } from "./types.ts";
+import type { OpencodeClient } from "./types.ts";
 
 export async function latestAssistantText(
-  client: OpenCodeClient,
+  client: OpencodeClient,
   sessionId: string,
   signal: AbortSignal
 ): Promise<string | null> {
@@ -38,7 +38,10 @@ export function promptOutput(promptResponse: unknown): string | null {
   return messageText(promptResponse);
 }
 
-export function filterEventsBySession(stream: unknown, sessionId: string): unknown {
+export function filterEventsBySession(
+  stream: unknown,
+  sessionId: string
+): unknown {
   if (Array.isArray(stream)) {
     return stream.filter((event) => eventSessionId(event) === sessionId);
   }
@@ -132,8 +135,6 @@ function readString(value: unknown): string | null {
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    Symbol.asyncIterator in value
+    typeof value === "object" && value !== null && Symbol.asyncIterator in value
   );
 }

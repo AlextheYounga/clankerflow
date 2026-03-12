@@ -1,6 +1,9 @@
 import type { RuntimeEnv } from "../../protocol.ts";
 
-export function normalizeServerUrl(url: string, runtimeEnv: RuntimeEnv): string {
+export function normalizeServerUrl(
+  url: string,
+  runtimeEnv: RuntimeEnv
+): string {
   if (runtimeEnv !== "container") {
     return url;
   }

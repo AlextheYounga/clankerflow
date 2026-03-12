@@ -17,7 +17,7 @@ export class IpcTransport {
 
   start(): void {
     const rawPort = process.env.AGENTKATA_IPC_PORT;
-    if (!rawPort) {
+    if (rawPort === undefined) {
       process.stderr.write("fatal: AGENTKATA_IPC_PORT is not set\n");
       process.exit(1);
     }

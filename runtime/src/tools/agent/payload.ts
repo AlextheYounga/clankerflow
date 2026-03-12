@@ -1,6 +1,12 @@
+import type { SessionPromptData } from "@opencode-ai/sdk/client";
+
 import type { JsonObject } from "./types.ts";
 
-export function createSessionPayload(input: Record<string, unknown>): JsonObject {
+type PromptRequest = Omit<SessionPromptData, "url">;
+
+export function createSessionPayload(
+  input: Record<string, unknown>
+): JsonObject {
   const title = readTrimmedString(input.title);
   if (title === null) {
     return {};
@@ -12,26 +18,20 @@ export function createSessionPayload(input: Record<string, unknown>): JsonObject
 export function buildPromptRequest(
   input: Record<string, unknown>,
   sessionId: string,
-  prompt: string,
-  isYolo: boolean
-): JsonObject {
-  const body: JsonObject = {
+  prompt: string
+): PromptRequest {
+  const body: NonNullable<SessionPromptData["body"]> = {
     parts: [{ type: "text", text: prompt }],
   };
-  const request: JsonObject = {
+  const request: PromptRequest = {
     path: { id: sessionId },
     body,
   };
 
   applyString(body, "system", input.system);
-  applyString(body, "mode", input.mode);
   applyRecord(body, "tools", input.tools);
   applyModel(body, input.model);
   applyModelIds(body, input);
-
-  if (isYolo && typeof body.mode !== "string") {
-    body.mode = "build";
-  }
 
   return request;
 }
@@ -53,7 +53,10 @@ function applyModel(target: JsonObject, value: unknown): void {
     return;
   }
 
-  if (typeof value.providerID === "string" && typeof value.modelID === "string") {
+  if (
+    typeof value.providerID === "string" &&
+    typeof value.modelID === "string"
+  ) {
     target.model = {
       providerID: value.providerID,
       modelID: value.modelID,
