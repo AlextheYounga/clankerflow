@@ -15,7 +15,7 @@ export default tseslint.config(
   ...tseslint.configs.stylisticTypeChecked,
 
   {
-    files: ["src/**/*.ts", "tests/**/*.ts"],
+    files: ["src/**/*.ts", "tests/**/*.ts", "workflows/**/*.ts"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",

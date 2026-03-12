@@ -1,5 +1,6 @@
 # App
 src/kit/.agentkata/lib
+src/kit/workflows
 
 # Logs
 logs

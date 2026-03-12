@@ -6,16 +6,20 @@ use std::process::Command;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=runtime/src");
+    println!("cargo:rerun-if-changed=runtime/workflows");
     println!("cargo:rerun-if-changed=runtime/package.json");
     println!("cargo:rerun-if-changed=runtime/package-lock.json");
 
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
     let src = Path::new(&manifest_dir).join("runtime/src");
     let dst = Path::new(&manifest_dir).join("src/kit/.agentkata/lib/src");
+    let workflows_src = Path::new(&manifest_dir).join("runtime/workflows");
+    let workflows_dst = Path::new(&manifest_dir).join("src/kit/workflows");
     let test_runtime_dir = target_dir()?.join("test-runtime");
     let bundled_runner = test_runtime_dir.join("runner.cjs");
 
     copy_dir_all(&src, &dst)?;
+    copy_dir_all(&workflows_src, &workflows_dst)?;
     bundle_test_runner(&manifest_dir, &bundled_runner)?;
     println!(
         "cargo:rustc-env=AGENTKATA_TEST_RUNNER_BUNDLE={}",
