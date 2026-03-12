@@ -5,6 +5,8 @@ export type { AgentContext, AgentOptions };
 export function createAgent(options: AgentOptions): AgentContext {
   return {
     run: createRunHandler(options),
+    command: (input) =>
+      options.invokeCapability("opencode_command", input, options.signal),
     events: (sessionId) =>
       options.invokeCapability(
         "opencode_events",

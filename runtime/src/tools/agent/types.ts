@@ -1,5 +1,6 @@
 export interface AgentContext {
   run(input: Record<string, unknown>): Promise<Record<string, unknown>>;
+  command(input: Record<string, unknown>): Promise<Record<string, unknown>>;
   events(sessionId: string): Promise<Record<string, unknown>>;
   messages(sessionId: string): Promise<Record<string, unknown>>;
   cancel(sessionId: string): Promise<Record<string, unknown>>;

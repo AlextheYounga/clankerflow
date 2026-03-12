@@ -98,7 +98,7 @@ test("agent.run chains error.cause into error message", async () => {
   );
 });
 
-test("agent messages/events/cancel invoke backend capabilities", async () => {
+test("agent command/messages/events/cancel invoke backend capabilities", async () => {
   const calls: string[] = [];
   const agent = createAgent({
     yolo: false,
@@ -114,6 +114,12 @@ test("agent messages/events/cancel invoke backend capabilities", async () => {
           return Promise.resolve({
             session_id: payload.session_id,
             messages: [{ id: "m1" }],
+          });
+        }
+        case "opencode_command": {
+          return Promise.resolve({
+            session_id: payload.session_id,
+            response: { status: "executed" },
           });
         }
         case "opencode_events": {
@@ -135,10 +141,18 @@ test("agent messages/events/cancel invoke backend capabilities", async () => {
     },
   });
 
+  const command = await agent.command({
+    session_id: "sess_1",
+    command: "/review",
+  });
   const messages = await agent.messages("sess_1");
   const events = await agent.events("sess_1");
   const cancel = await agent.cancel("sess_1");
 
+  assert.deepEqual(command, {
+    session_id: "sess_1",
+    response: { status: "executed" },
+  });
   assert.deepEqual(messages, {
     session_id: "sess_1",
     messages: [{ id: "m1" }],
@@ -152,6 +166,7 @@ test("agent messages/events/cancel invoke backend capabilities", async () => {
     result: true,
   });
   assert.deepEqual(calls, [
+    "opencode_command:sess_1",
     "opencode_messages:sess_1",
     "opencode_events:sess_1",
     "opencode_cancel:sess_1",

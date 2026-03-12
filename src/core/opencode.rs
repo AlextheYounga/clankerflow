@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Result, anyhow};
 use opencode_sdk::Client;
 use opencode_sdk::types::event::Event;
-use opencode_sdk::types::message::{Message, PromptPart, PromptRequest};
+use opencode_sdk::types::message::{CommandRequest, Message, PromptPart, PromptRequest};
 use opencode_sdk::types::project::ModelRef;
 use opencode_sdk::types::session::CreateSessionRequest;
 use serde_json::{Value, json};
@@ -47,6 +47,7 @@ impl OpencodeService {
     pub async fn dispatch(&self, request_name: &str, payload: &Value) -> Result<Value> {
         match request_name {
             "opencode_run" => self.run(payload).await,
+            "opencode_command" => self.command(payload).await,
             "opencode_messages" => self.messages(payload).await,
             "opencode_events" => self.events(payload).await,
             "opencode_cancel" => self.cancel(payload).await,
@@ -102,6 +103,19 @@ impl OpencodeService {
         Ok(json!({
             "session_id": session_id,
             "messages": messages,
+        }))
+    }
+
+    async fn command(&self, payload: &Value) -> Result<Value> {
+        let session_id = require_string(payload, "session_id", "opencode_command")?;
+        let command = require_command(payload)?;
+        let args = read_optional_json(payload, "args");
+        let request = CommandRequest { command, args };
+        let response = self.client.messages().command(session_id, &request).await?;
+
+        Ok(json!({
+            "session_id": session_id,
+            "response": response,
         }))
     }
 
@@ -162,6 +176,25 @@ fn require_string<'a>(payload: &'a Value, key: &str, request_name: &str) -> Resu
         .get(key)
         .and_then(Value::as_str)
         .ok_or_else(|| anyhow!("{request_name} requires payload.{key} string field"))
+}
+
+fn require_command(payload: &Value) -> Result<String> {
+    let raw = require_string(payload, "command", "opencode_command")?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("opencode_command requires a non-empty command"));
+    }
+
+    let normalized = trimmed.strip_prefix('/').unwrap_or(trimmed).trim();
+    if normalized.is_empty() {
+        return Err(anyhow!("opencode_command requires a non-empty command"));
+    }
+
+    Ok(normalized.to_string())
+}
+
+fn read_optional_json(payload: &Value, key: &str) -> Option<Value> {
+    payload.get(key).filter(|value| !value.is_null()).cloned()
 }
 
 fn read_string(payload: &Value, key: &str) -> Option<String> {
@@ -248,5 +281,19 @@ mod tests {
 
         assert_eq!(model.provider_id, "openai");
         assert_eq!(model.model_id, "gpt-5");
+    }
+
+    #[test]
+    fn require_command_strips_leading_slash() {
+        let command = require_command(&json!({ "command": " /review " })).unwrap();
+
+        assert_eq!(command, "review");
+    }
+
+    #[test]
+    fn require_command_rejects_empty_command() {
+        let error = require_command(&json!({ "command": " /   " })).unwrap_err();
+
+        assert!(error.to_string().contains("non-empty command"));
     }
 }
