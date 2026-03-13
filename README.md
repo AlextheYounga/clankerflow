@@ -4,8 +4,8 @@
 
 # clankerflow
 
-`clankerflow` is a Rust CLI, drop-in OpenCode framework that allows you to run Turing-complete AI workflows in your repository using readable Typescript. 
-Workflows can be easily containerized or run rawdog on your machine. 
+`clankerflow` is a Rust CLI, drop-in OpenCode framework that allows you to run deterministic AI workflows in your repository using readable Typescript. 
+Get the full power of OpenCode with the full power of a programming language. Workflows can be easily containerized for yolo mode or run rawdog on your machine. 
 
 Workflows are authored in TypeScript and executed by a managed Node runtime, while Rust owns orchestration, state, and OpenCode lifecycle calls.
 
@@ -52,13 +52,7 @@ You can override the OpenCode URL in `.agents/settings.json`:
 ## Install and build
 
 ```bash
-cargo build
-```
-
-Run without installing globally:
-
-```bash
-cargo run -- <command>
+cargo install --git https://github.com/AlextheYounga/clankerflow.git clankerflow
 ```
 
 After build, the CLI binary is named `clankerflow`.
@@ -74,6 +68,7 @@ clankerflow init
 Then run a workflow:
 
 ```bash
+# Run the duos.js workflow
 clankerflow work duos
 ```
 
@@ -90,6 +85,47 @@ clankerflow work duos
 - `clankerflow make ticket` - create a new ticket markdown file.
 - `clankerflow make worktree <branch>` - create a git worktree under `.agents/.worktrees/<branch>`.
 - `clankerflow containment up|down` - start/stop containment container.
+
+## Containment mode
+
+Containment runs workflows inside a Docker container so agents can operate with full autonomy (`--yolo`) without touching your host filesystem directly.
+
+```bash
+# Start the container (idempotent — builds on first run)
+clankerflow containment up
+
+# Run a workflow inside the container with safety checks disabled
+clankerflow work duos --containment
+
+# Or use the flags separately
+clankerflow work duos --env container --yolo
+
+# Stop and remove the container when done
+clankerflow containment down
+```
+
+Each project gets its own persistent container named `agent-{codebase_id}`, derived from your project path. The container:
+
+- Bind-mounts your project root as `/workspace` (read-write).
+- Mounts `~/.config/opencode` read-only so the agent can reach your OpenCode server.
+- Rewrites `127.0.0.1` URLs to `host.docker.internal` automatically.
+- Ships with git, build-essential, gitleaks, and the OpenCode CLI pre-installed.
+- Stays alive between runs (`restart: unless-stopped`) so subsequent workflows start instantly.
+
+The Dockerfile and compose file are scaffolded into `.agents/.clankerflow/docker/` during `init` and can be customized per-project.
+
+Workflows can check their environment at runtime via `ctx.runtimeEnv` and `ctx.yolo`:
+
+```ts
+async function careful(ctx, { agent }) {
+  await agent.run({
+    title: ctx.yolo ? "Cowboy" : "Engineer",
+    prompt: ctx.yolo
+      ? "You have full autonomy. Ship it."
+      : "Proceed carefully and explain each step.",
+  });
+}
+```
 
 ## Workflow runtime notes
 
