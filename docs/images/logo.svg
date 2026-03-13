@@ -1,0 +1,24 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">clankerflow logo</title>
+  <desc id="desc">A ticket, agent, and review mark connected in a workflow.</desc>
+  <rect x="24" y="24" width="208" height="208" rx="52" fill="#0F172A" fill-opacity="0.03"/>
+  <rect x="24" y="24" width="208" height="208" rx="52" stroke="#94A3B8" stroke-opacity="0.3" stroke-width="4"/>
+
+  <path d="M98 90C112 90 113 113 128 128" stroke="#64748B" stroke-width="14" stroke-linecap="round"/>
+  <path d="M158 128C173 128 172 161 186 176" stroke="#64748B" stroke-width="14" stroke-linecap="round"/>
+
+  <rect x="46" y="64" width="52" height="52" rx="16" fill="#F59E0B"/>
+  <path d="M60 80H84" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>
+  <path d="M60 90H78" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>
+  <path d="M60 100H72" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>
+
+  <circle cx="128" cy="128" r="30" fill="#14B8A6"/>
+  <path d="M120 118L131 128L120 138" stroke="#0F172A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M136 138H144" stroke="#0F172A" stroke-width="6" stroke-linecap="round"/>
+
+  <path d="M186 146L216 176L186 206L156 176L186 146Z" fill="#3B82F6"/>
+  <path d="M172 176L181 185L199 167" stroke="#0F172A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="128" cy="128" r="6" fill="#E2E8F0"/>
+  <circle cx="186" cy="176" r="6" fill="#E2E8F0"/>
+</svg>

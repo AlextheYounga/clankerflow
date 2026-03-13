@@ -1,8 +1,27 @@
+<p align="center">
+  <img src="docs/images/logo.svg" alt="clankerflow logo" width="160" />
+</p>
+
 # clankerflow
 
 `clankerflow` is a Rust CLI for running AI workflows in your repository.
 
 Workflows are authored in TypeScript and executed by a managed Node runtime, while Rust owns orchestration, state, and OpenCode lifecycle calls.
+
+```ts
+async function showcase(ctx, { agent, tickets, git }) {
+  await agent.run({ title: "Planner", prompt: "Create one small feature ticket." });
+
+  const ticket = ctx.ticket ?? (await tickets.getNext({ status: "OPEN" })).ticket;
+  if (!ticket) throw new Error("No open ticket found");
+
+  await git.checkoutBranch(ticket.branch ?? `ticket-${ticket.ticketId}`, "master");
+  await tickets.updateStatus({ id: ticket.ticketId, status: "IN_PROGRESS" });
+
+  await agent.run({ title: "Dev", prompt: `Implement ${ticket.filePath}` });
+  await agent.run({ title: "QA", prompt: `Review ${ticket.filePath}` });
+}
+```
 
 ## What it does
 
@@ -77,6 +96,8 @@ clankerflow work duos
 - Runtime helpers are scaffolded under `.agents/.clankerflow/lib`.
 - Rust and Node communicate over structured JSON IPC.
 - Run monitoring is done in the OpenCode web UI.
+
+More short examples live in `docs/examples.md`.
 
 ## Agent API (workflow side)
 
