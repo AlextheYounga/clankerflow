@@ -8,7 +8,7 @@ use sea_orm_migration::MigratorTrait;
 use crate::db::migration::Migrator;
 
 fn database_path(project_root: &Path) -> PathBuf {
-    project_root.join(".agents/.agentkata/database.db")
+    project_root.join(".agents/.clankerflow/database.db")
 }
 
 /// # Errors

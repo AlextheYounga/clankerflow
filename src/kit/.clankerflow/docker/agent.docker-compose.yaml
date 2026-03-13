@@ -2,7 +2,7 @@ services:
   agent:
     build:
       context: ../../..
-      dockerfile: .agents/.agentkata/docker/Dockerfile
+      dockerfile: .agents/.clankerflow/docker/Dockerfile
     container_name: agent-${CODEBASE_ID:-local}
     image: agent-containment
     volumes:

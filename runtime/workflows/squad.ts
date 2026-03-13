@@ -3,7 +3,7 @@ import type {
   WorkflowContext,
   WorkflowTools,
   Ticket,
-} from "agentkata";
+} from "clankerflow";
 
 export const meta: WorkflowMeta = {
   id: "dev-team",

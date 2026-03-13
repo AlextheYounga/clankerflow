@@ -1,15 +1,15 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
-use agentkata::core::embeds::copy_kit;
-use agentkata::core::opencode::OpencodeService;
-use agentkata::core::runner::ipc_loop::{IpcLoopContext, handle_runner_line};
-use agentkata::core::runner::protocol::LoopControl;
-use agentkata::core::runner::signal::CancelState;
-use agentkata::core::runner::store::{create_run, upsert_workflow};
-use agentkata::db::connection::connect;
-use agentkata::db::entities::event::{Column as EventColumn, Entity as Event};
-use agentkata::db::entities::workflow_run::{RunStatus, WorkflowEnv};
+use clankerflow::core::embeds::copy_kit;
+use clankerflow::core::opencode::OpencodeService;
+use clankerflow::core::runner::ipc_loop::{IpcLoopContext, handle_runner_line};
+use clankerflow::core::runner::protocol::LoopControl;
+use clankerflow::core::runner::signal::CancelState;
+use clankerflow::core::runner::store::{create_run, upsert_workflow};
+use clankerflow::db::connection::connect;
+use clankerflow::db::entities::event::{Column as EventColumn, Entity as Event};
+use clankerflow::db::entities::workflow_run::{RunStatus, WorkflowEnv};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde_json::json;
 use tempfile::TempDir;

@@ -1,6 +1,6 @@
-# kata
+# clankerflow
 
-`kata` is a Rust CLI for running AI workflows in your repository.
+`clankerflow` is a Rust CLI for running AI workflows in your repository.
 
 Workflows are authored in TypeScript and executed by a managed Node runtime, while Rust owns orchestration, state, and OpenCode lifecycle calls.
 
@@ -15,7 +15,7 @@ Workflows are authored in TypeScript and executed by a managed Node runtime, whi
 ## Requirements
 
 - Rust toolchain (edition 2024 compatible).
-- Node + npm (used during `kata init` to install runtime dependencies).
+- Node + npm (used during `clankerflow init` to install runtime dependencies).
 - Docker (only if you use containment mode).
 - OpenCode local server reachable at `http://127.0.0.1:4096` by default.
 
@@ -41,40 +41,40 @@ Run without installing globally:
 cargo run -- <command>
 ```
 
-After build, the CLI binary is named `kata`.
+After build, the CLI binary is named `clankerflow`.
 
 ## Quick start
 
 From the repository you want to automate:
 
 ```bash
-kata init
+clankerflow init
 ```
 
 Then run a workflow:
 
 ```bash
-kata work duos
+clankerflow work duos
 ```
 
-`kata work` now also opens the OpenCode manage URL in your browser automatically.
+`clankerflow work` now also opens the OpenCode manage URL in your browser automatically.
 
 ## CLI commands
 
-- `kata init` - initialize or refresh `.agents` scaffold.
-- `kata work <name>` - run workflow `.agents/workflows/<name>.ts`.
+- `clankerflow init` - initialize or refresh `.agents` scaffold.
+- `clankerflow work <name>` - run workflow `.agents/workflows/<name>.ts`.
   - `--env host|container`
   - `--yolo`
   - `--containment` (shorthand for container + yolo)
-- `kata manage` - open OpenCode sessions UI for current project.
-- `kata make ticket` - create a new ticket markdown file.
-- `kata make worktree <branch>` - create a git worktree under `.agents/.worktrees/<branch>`.
-- `kata containment up|down` - start/stop containment container.
+- `clankerflow manage` - open OpenCode sessions UI for current project.
+- `clankerflow make ticket` - create a new ticket markdown file.
+- `clankerflow make worktree <branch>` - create a git worktree under `.agents/.worktrees/<branch>`.
+- `clankerflow containment up|down` - start/stop containment container.
 
 ## Workflow runtime notes
 
 - Workflow files live at `.agents/workflows/*.ts`.
-- Runtime helpers are scaffolded under `.agents/.agentkata/lib`.
+- Runtime helpers are scaffolded under `.agents/.clankerflow/lib`.
 - Rust and Node communicate over structured JSON IPC.
 - Run monitoring is done in the OpenCode web UI.
 

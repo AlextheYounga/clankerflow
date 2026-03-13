@@ -94,7 +94,7 @@ async function runRunnerSequence(
   const child = spawn("node", [runnerPath], {
     cwd: path.join(dirname, ".."),
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, AGENTKATA_IPC_PORT: String(port) },
+    env: { ...process.env, CLANKERFLOW_IPC_PORT: String(port) },
   });
   const closePromise = once(child, "close");
 

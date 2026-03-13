@@ -10,8 +10,8 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "agentkata": ["./.agentkata/lib/types/agentkata.d.ts"],
-      "agentkata/helpers": ["./.agentkata/lib/src/helpers.ts"]
+      "clankerflow": ["./.clankerflow/lib/types/clankerflow.d.ts"],
+      "clankerflow/helpers": ["./.clankerflow/lib/src/helpers.ts"]
     }
   },
   "include": ["workflows/**/*.ts"]

@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
     let src = Path::new(&manifest_dir).join("runtime/src");
-    let dst = Path::new(&manifest_dir).join("src/kit/.agentkata/lib/src");
+    let dst = Path::new(&manifest_dir).join("src/kit/.clankerflow/lib/src");
     let workflows_src = Path::new(&manifest_dir).join("runtime/workflows");
     let workflows_dst = Path::new(&manifest_dir).join("src/kit/workflows");
     let test_runtime_dir = target_dir()?.join("test-runtime");
@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     copy_dir_all(&workflows_src, &workflows_dst)?;
     bundle_test_runner(&manifest_dir, &bundled_runner)?;
     println!(
-        "cargo:rustc-env=AGENTKATA_TEST_RUNNER_BUNDLE={}",
+        "cargo:rustc-env=CLANKERFLOW_TEST_RUNNER_BUNDLE={}",
         bundled_runner.display()
     );
 

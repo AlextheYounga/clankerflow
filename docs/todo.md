@@ -8,16 +8,16 @@ Legend: `[x]` done, `[ ]` not started, `[~]` partially done / stub exists.
 - [x] `src/core/settings.rs` — `Settings` struct with `GitConfig`, `WorkflowConfig`, `OpencodeConfig`; load/save JSON
 - [x] `src/core/tickets.rs` — Ticket creation with auto-increment `T-NNN`, template rendering, branch/title substitution
 - [x] `src/core/project.rs` — Walk-up project root discovery (`.agents/` marker)
-- [x] `agentctl init` — Fresh init + re-init (preserves user files), codebase_id stamping, DB migration
-- [x] `agentctl work <name>` — Workflow file resolution (`.js`/`.ts`), path safety validation
-- [x] `agentctl make ticket` — Create ticket via `core::tickets`
-- [x] `agentctl make worktree <branch>` — Branch validation, `git worktree add`, paired ticket creation
-- [x] `agentctl manage` — Opens OpenCode web UI in default browser via `open` crate
+- [x] `clankerflow init` — Fresh init + re-init (preserves user files), codebase_id stamping, DB migration
+- [x] `clankerflow work <name>` — Workflow file resolution (`.js`/`.ts`), path safety validation
+- [x] `clankerflow make ticket` — Create ticket via `core::tickets`
+- [x] `clankerflow make worktree <branch>` — Branch validation, `git worktree add`, paired ticket creation
+- [x] `clankerflow manage` — Opens OpenCode web UI in default browser via `open` crate
 - [x] URL built from base64-encoded project path (`http://{server}/{base64(path)}/sessions`)
 - [x] `codebase_id` changed from random hex to base64-encoded project path
 - [x] `OpencodeSettings` struct with optional `server_url` (default `http://127.0.0.1:4096`)
 - [x] `settings.json` template includes `opencode` block
-- [x] `agentctl work` drives the entire lifecycle in a single foreground process (no daemon)
+- [x] `clankerflow work` drives the entire lifecycle in a single foreground process (no daemon)
 - [x] `src/core/runner.rs` — `WorkflowRunner::run()` spawns Node, runs IPC loop, returns final status
 - [x] `src/core/runner/protocol.rs` — `parse_capability_request_payload`, `write_message`, `send_cancel`, `send_shutdown`
 - [x] `src/core/runner/store.rs` — `upsert_workflow`, `create_run`, `set_status`, `append_run_event`
@@ -53,7 +53,7 @@ Legend: `[x]` done, `[ ]` not started, `[~]` partially done / stub exists.
 - [x] Socketpair/fd-3 IPC replaced with TCP: Rust binds `127.0.0.1:0`, passes port via `AGENTCTL_IPC_PORT`, Node connects back
 - [x] `runtime/src/ipc.ts` — `IpcTransport` rewritten to use `net.createConnection`; container mode connects to `host.docker.internal`; `"error"` handler logs connection failures; `AGENTCTL_IPC_PORT` guarded with clear exit on missing
 - [x] `src/app/cli.rs` — `--containment` flag (shorthand for `--env container --yolo`); clap-level `conflicts_with = "yolo"`; runtime guard for `--env container`
-- [x] `agentctl containment up/down` subcommands — `src/app/commands/containment.rs`
+- [x] `clankerflow containment up/down` subcommands — `src/app/commands/containment.rs`
 - [x] `agent.docker-compose.yaml` — `extra_hosts: host.docker.internal:host-gateway` for Linux container-to-host TCP
 - [x] `listener.accept()` wrapped with 30-second timeout and actionable error message
 - [x] Node tests: `runtime/tests/ipc.test.ts` — TCP transport, line framing, disconnect handling

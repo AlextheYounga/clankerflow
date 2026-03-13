@@ -1,4 +1,4 @@
-import type { WorkflowMeta, WorkflowContext, WorkflowTools } from "agentkata";
+import type { WorkflowMeta, WorkflowContext, WorkflowTools } from "clankerflow";
 
 export const meta: WorkflowMeta = {
   id: "default",

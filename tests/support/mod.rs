@@ -1,11 +1,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use agentkata::core::embeds::copy_kit;
-use agentkata::db::connection::connect;
-use agentkata::db::entities::event::{Column as EventColumn, Entity as Event};
-use agentkata::db::entities::workflow::{Column as WorkflowColumn, Entity as Workflow};
-use agentkata::db::entities::workflow_run::{Column as WorkflowRunColumn, Entity as WorkflowRun};
+use clankerflow::core::embeds::copy_kit;
+use clankerflow::db::connection::connect;
+use clankerflow::db::entities::event::{Column as EventColumn, Entity as Event};
+use clankerflow::db::entities::workflow::{Column as WorkflowColumn, Entity as Workflow};
+use clankerflow::db::entities::workflow_run::{Column as WorkflowRunColumn, Entity as WorkflowRun};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde_json::Value;
 use tempfile::TempDir;
@@ -29,7 +29,7 @@ pub fn workflow_path(project_root: &Path, workflow_name: &str) -> PathBuf {
 pub async fn stored_run(
     project_root: &Path,
     workflow_name: &str,
-) -> agentkata::db::entities::workflow_run::Model {
+) -> clankerflow::db::entities::workflow_run::Model {
     let db = connect(project_root).await.unwrap();
     let workflow = Workflow::find()
         .filter(WorkflowColumn::Name.eq(workflow_name))

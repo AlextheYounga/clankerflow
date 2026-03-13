@@ -1,8 +1,8 @@
 mod support;
 
-use agentkata::app::types::RuntimeEnv;
-use agentkata::core::runner::{WorkflowArgs, WorkflowRunner};
-use agentkata::db::entities::workflow_run::RunStatus;
+use clankerflow::app::types::RuntimeEnv;
+use clankerflow::core::runner::{WorkflowArgs, WorkflowRunner};
+use clankerflow::db::entities::workflow_run::RunStatus;
 use serde_json::Value;
 
 use support::{event_payloads, setup_project, stored_run, workflow_path};
@@ -25,7 +25,7 @@ async fn run_persists_workflow_progress_from_spawned_host_runner() {
     let workflow_path = workflow_path(project.path(), "demo");
 
     unsafe {
-        std::env::set_var("AGENTKATA_HOST_RUNNER_BUNDLE", test_runner_bundle());
+        std::env::set_var("CLANKERFLOW_HOST_RUNNER_BUNDLE", test_runner_bundle());
     }
 
     let args = WorkflowArgs {
@@ -60,5 +60,5 @@ async fn run_persists_workflow_progress_from_spawned_host_runner() {
 }
 
 fn test_runner_bundle() -> &'static str {
-    env!("AGENTKATA_TEST_RUNNER_BUNDLE")
+    env!("CLANKERFLOW_TEST_RUNNER_BUNDLE")
 }

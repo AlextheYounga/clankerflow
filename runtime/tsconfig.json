@@ -12,7 +12,7 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "agentkata": ["../src/kit/.agentkata/lib/types/agentkata.d.ts"]
+      "clankerflow": ["../src/kit/.clankerflow/lib/types/clankerflow.d.ts"]
     }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "workflows/**/*.ts"]

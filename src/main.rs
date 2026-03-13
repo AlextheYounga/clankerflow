@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use agentkata::app::cli::Cli;
+use clankerflow::app::cli::Cli;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

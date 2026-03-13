@@ -2,7 +2,7 @@
 
 ## Purpose
 
-**Name:** `agentctl`
+**Name:** `clankerflow`
 **Goal:** Build an AI workflow framework where workflows are authored in Javascript and orchestrated by a Rust CLI.
 
 ## Important Notes
@@ -14,8 +14,8 @@
 - Designed as a drop-in agent system for any codebase with hands-free development workflows.
 - Ability to create deterministic AI workflows using plain Javascript.
 - Typescript runtime that is compiled to Javascript `.agents/lib` folder, containing the runtime assets and helpers for creating deterministic workflows.
-- The `dist/` payload is embedded in the Rust binary and emitted during `agentctl init` into `.agents/lib`.
-- Clap-powered CLI. Workflow monitoring is handled by the OpenCode web UI (`agentctl manage` opens it in the browser).
+- The `dist/` payload is embedded in the Rust binary and emitted during `clankerflow init` into `.agents/lib`.
+- Clap-powered CLI. Workflow monitoring is handled by the OpenCode web UI (`clankerflow manage` opens it in the browser).
 - Workflow JavaScript is executed by a managed Node runtime process started by Rust.
 - Rust and Node communicate over stdio using structured JSON messages (IPC).
 - Transport model is intentionally Tauri-like: TypeScript workflow APIs are thin wrappers that invoke Rust capabilities over IPC.
@@ -31,7 +31,7 @@
 - Container model is per-project (persistent), not per workflow run.
 - Container named `workflow-{codebase_id}` using codebase_id from settings. Codebase ID is the base64-encoded (no padding) absolute project path, written to settings.json on `init`. This matches the project identifier used by the OpenCode web UI.
 - Containers are not spawned by default, but set on a per workflow basis in the `meta` block in the workflow. The point of contained workflows is so that they can be run safely on dangerous mode (`--yolo` or `--dangerously-bypass-approvals-and-sandbox` in codex-speak. In opencode it's --yolo.)
-- Under both host and container workflow runtimes, they should run as a background daemon; do not steal my terminal from me with a blocking process. Monitoring is done via the OpenCode web UI, opened by `agentctl manage`.
+- Under both host and container workflow runtimes, they should run as a background daemon; do not steal my terminal from me with a blocking process. Monitoring is done via the OpenCode web UI, opened by `clankerflow manage`.
 
 ## OpenCode Lifecycle Integration
 - OpenCode REST API is a primary integration point for agent session lifecycle.
@@ -45,17 +45,17 @@
 - Keep workflows in TypeScript for authoring speed and maintainability.
 - Use Node for workflow execution to preserve Node APIs (`fs`, `child_process`, etc.).
 - Do not execute workflows through shell strings; spawn Node directly from Rust process APIs.
-- Preferred distribution model: ship a bundled Node runtime with `agentctl` releases.
+- Preferred distribution model: ship a bundled Node runtime with `clankerflow` releases.
 - No fallback: bundled Node is required for releases.
 - Dev override: `AGENTCTL_NODE_BIN` can point to a local Node binary.
 
 ## User Flow
 
-- User runs `agentctl init` in a new or existing repository.
+- User runs `clankerflow init` in a new or existing repository.
 - A `.agents` folder is created in the workspace. If `.agents` already exists, `init` exits with an error (no overwrite).
 - The `init` command also places a boilerplate `.opencode/opencode.json` for project-local OpenCode settings.
-- User runs `agentctl work duos` to execute `.agents/workflows/duos.ts`. 
-- User runs `agentctl manage` to open the OpenCode web UI for this project in the browser. The web UI shows running and previous sessions.
+- User runs `clankerflow work duos` to execute `.agents/workflows/duos.ts`. 
+- User runs `clankerflow manage` to open the OpenCode web UI for this project in the browser. The web UI shows running and previous sessions.
 - User can stop active workflows from the web UI.
 
 ## References
@@ -80,11 +80,11 @@ docs/references/
 
 ## Kit Folder
 
-After `agentctl init`, the framework scaffold is written into the repository as `.agents`, plus `.opencode/opencode.json` for project-local OpenCode configuration.
+After `clankerflow init`, the framework scaffold is written into the repository as `.agents`, plus `.opencode/opencode.json` for project-local OpenCode configuration.
 
 ```
 .agents
-├── .agentctl                             Internal framework state (gitignored)
+├── .clankerflow                          Internal framework state (gitignored)
 │   ├── database.db                       SQLite database
 │   ├── docker                            Container runtime support
 │   │   ├── agent.docker-compose.yaml
@@ -107,10 +107,10 @@ After `agentctl init`, the framework scaffold is written into the repository as 
 
 ### Entrypoint
 
-Usage: `agentctl <COMMAND>`
+Usage: `clankerflow <COMMAND>`
 
 Commands:
-- `init` Initialize agentctl in current directory
+- `init` Initialize clankerflow in current directory
 - `work` Start a workflow run
 - `manage` Open the OpenCode web UI for this project in the browser
 - `make` Generate project artifacts
@@ -121,14 +121,14 @@ Options:
 
 ### Work
 
-Usage: `agentctl work <NAME>`
+Usage: `clankerflow work <NAME>`
 
 Options:
 - `-e, --env` Runtime target: `host` or `container` (default: `host`)
 
 ### Make
 
-Usage: `agentctl make <COMMAND>`
+Usage: `clankerflow make <COMMAND>`
 
 Commands:
 - `ticket` Create a new ticket
@@ -137,7 +137,7 @@ Commands:
 
 ## Must Haves
 
-- Agent CLI for setting up and operating the agentctl framework.
+- Agent CLI for setting up and operating the clankerflow framework.
 - Workflows authored in Javascript with support for complex, multi-step agent orchestration.
 - Workflow runtime support for both host and container environments.
   - OpenCode dangerous mode uses `--yolo` with workflows running in containers.
@@ -150,7 +150,7 @@ Commands:
 - Workflow authors can pass OpenCode session options (for example model/provider overrides, mode/tools/system inputs, and command-style prompts like `/review`) through runtime agent APIs.
 - `.agents/settings.json` handles global settings (for example git username/email for automated git operations).
 - Per-project drop-in architecture.
-- `agentctl manage` opens the OpenCode web UI for the current project in the browser.
+- `clankerflow manage` opens the OpenCode web UI for the current project in the browser.
 - Managed Rust <-> Node IPC protocol for workflow execution events and control messages.
 
 ## Future Exploratory Goals

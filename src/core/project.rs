@@ -6,7 +6,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AgentKataError {
-    #[error("kata is not initialized in {0} or any parent directory (run `kata init`)")]
+    #[error(
+        "clankerflow is not initialized in {0} or any parent directory (run `clankerflow init`)"
+    )]
     ProjectNotInitialized(PathBuf),
 }
 

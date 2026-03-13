@@ -25,7 +25,7 @@ test("resolveExecSpec maps container commands to docker compose exec", () => {
   assert.deepEqual(spec.args, [
     "compose",
     "-f",
-    "/workspace/.agents/.agentkata/docker/agent.docker-compose.yaml",
+    "/workspace/.agents/.clankerflow/docker/agent.docker-compose.yaml",
     "exec",
     "-T",
     "agent",

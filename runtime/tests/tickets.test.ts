@@ -8,7 +8,7 @@ import { createTicketContext } from "../src/tools/tickets.ts";
 
 test("TicketContext: CRUD operations", async (t) => {
   const tmpDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "agentkata-ticket-test-")
+    path.join(os.tmpdir(), "clankerflow-ticket-test-")
   );
   const ticketsDir = path.join(tmpDir, ".agents", "tickets");
   await fs.mkdir(ticketsDir, { recursive: true });

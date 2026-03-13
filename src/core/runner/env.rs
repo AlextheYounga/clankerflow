@@ -22,14 +22,14 @@ pub async fn spawn_container_runner(
     port: u16,
 ) -> Result<Child> {
     let container_id = Docker::ensure_running(project_root, codebase_id).await?;
-    let runner_path = "/workspace/.agents/.agentkata/lib/src/runner.ts";
+    let runner_path = "/workspace/.agents/.clankerflow/lib/src/runner.ts";
     let tsconfig_path = "/workspace/.agents/tsconfig.json";
-    let tsx_bin = "/workspace/.agents/.agentkata/lib/node_modules/.bin/tsx";
+    let tsx_bin = "/workspace/.agents/.clankerflow/lib/node_modules/.bin/tsx";
 
     Command::new("docker")
         .args(["exec"])
-        .args(["-e", &format!("AGENTKATA_IPC_PORT={port}")])
-        .args(["-e", "AGENTKATA_CONTAINER=1"])
+        .args(["-e", &format!("CLANKERFLOW_IPC_PORT={port}")])
+        .args(["-e", "CLANKERFLOW_CONTAINER=1"])
         .arg(&container_id)
         .args([tsx_bin, "--tsconfig", tsconfig_path, runner_path])
         .stdin(Stdio::null())
@@ -55,7 +55,7 @@ pub fn spawn_host_runner(project_root: &Path, port: u16) -> Result<Child> {
 
     command
         .current_dir(project_root)
-        .env("AGENTKATA_IPC_PORT", port.to_string())
+        .env("CLANKERFLOW_IPC_PORT", port.to_string())
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -69,7 +69,7 @@ struct HostRunnerExecutable {
 }
 
 fn host_runner_executable(project_root: &Path) -> HostRunnerExecutable {
-    if let Ok(bundle_path) = env::var("AGENTKATA_HOST_RUNNER_BUNDLE") {
+    if let Ok(bundle_path) = env::var("CLANKERFLOW_HOST_RUNNER_BUNDLE") {
         return HostRunnerExecutable {
             program: OsString::from("node"),
             args: vec![OsString::from(bundle_path)],
@@ -83,7 +83,7 @@ fn host_runner_executable(project_root: &Path) -> HostRunnerExecutable {
 }
 
 fn runner_entry_path(project_root: &Path) -> Option<PathBuf> {
-    if env::var_os("AGENTKATA_HOST_RUNNER_BUNDLE").is_some() {
+    if env::var_os("CLANKERFLOW_HOST_RUNNER_BUNDLE").is_some() {
         return None;
     }
 
@@ -92,12 +92,12 @@ fn runner_entry_path(project_root: &Path) -> Option<PathBuf> {
 
 #[must_use]
 fn tsx_bin_path(project_root: &Path) -> PathBuf {
-    project_root.join(".agents/.agentkata/lib/node_modules/.bin/tsx")
+    project_root.join(".agents/.clankerflow/lib/node_modules/.bin/tsx")
 }
 
 #[must_use]
 fn runner_ts_path(project_root: &Path) -> PathBuf {
-    project_root.join(".agents/.agentkata/lib/src/runner.ts")
+    project_root.join(".agents/.clankerflow/lib/src/runner.ts")
 }
 
 #[cfg(test)]

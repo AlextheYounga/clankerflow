@@ -97,7 +97,7 @@ export function resolveExecSpec(
       path.join(
         workspaceRoot,
         ".agents",
-        ".agentkata",
+        ".clankerflow",
         "docker",
         "agent.docker-compose.yaml"
       ),
