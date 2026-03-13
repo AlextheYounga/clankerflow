@@ -9,8 +9,10 @@ Get the full power of OpenCode with the full power of a programming language. Wo
 
 Workflows are authored in TypeScript and executed by a managed Node runtime, while Rust owns orchestration, state, and OpenCode lifecycle calls.
 
+> Warning: `clankerflow` is currently in beta. Expect rough edges, breaking changes, and fast iteration.
+
 <p>
-  <img src="docs/images/carbon-dark.png" alt="workflow showcase" style="width: 80%; min-width: 300px;" />
+  <img src="docs/images/carbon.svg" alt="workflow showcase" style="width: 100%; min-width: 300px;" />
 </p>
 
 ## Example Workflows
