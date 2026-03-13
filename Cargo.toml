@@ -2,6 +2,10 @@
 name = "clankerflow"
 version = "0.1.0"
 edition = "2024"
+description = "Rust CLI for running deterministic AI workflows in your repository"
+license = "MIT"
+authors = ["Alex Younger"]
+readme = "README.md"
 
 [[bin]]
 name = "clankerflow"

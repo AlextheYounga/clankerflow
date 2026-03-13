@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo.svg" alt="clankerflow logo" width="160" />
+  <img src="docs/images/clankerflow.png" alt="clankerflow logo" width="160" />
 </p>
 
 # clankerflow

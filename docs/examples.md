@@ -70,20 +70,6 @@ async function nextUp(_ctx, { agent, tickets }) {
 }
 ```
 
-## Add A Ticket Note
-
-```ts
-async function documentResult(ctx, { tickets }) {
-  if (!ctx.ticket) throw new Error("This workflow requires a ticket");
-
-  await tickets.comment({
-    id: ctx.ticket.ticketId,
-    text: "Implementation is ready for review.",
-    section: "Dev Notes",
-  });
-}
-```
-
 ## Start An Agent Session And Follow Up
 
 ```ts
@@ -173,15 +159,23 @@ async function tinyLawyer(_ctx, { agent, fs }) {
 }
 ```
 
-## Hype Squad
-```ts
-async function hypeSquad(_ctx, { agent, git }) {
-  const diff = await git.diff();
 
-  await agent.run({
-    title: "Hype Squad",
-    prompt: `Read this diff and announce it like the most important release of the decade:\n\n${diff.stdout}`,
-  });
+## Nightwatch (sleep + polling loop)
+
+```ts
+async function nightwatch(_ctx, { agent, git, sleep }) {
+  let lastStatus = "";
+  for (let shift = 1; shift <= 5; shift++) {
+    const status = await git.status();
+    if (status.stdout !== lastStatus) {
+      await agent.run({
+        title: `Patrol ${shift}`,
+        prompt: `Something changed in the repo. Summarize what happened:\n\n${status.stdout}`,
+      });
+      lastStatus = status.stdout;
+    }
+    await sleep(10_000);
+  }
 }
 ```
 
@@ -206,22 +200,20 @@ async function existentialReview(_ctx, { agent, fs }) {
 
 ```ts
 async function simCity(_ctx, { agent, fs }) {
-  let city = await fs.read("docs/PROJECT.md");
-
+  await fs.write("CITY.md", await fs.read("docs/PROJECT.md"));
   for (let day = 1; day <= 3; day++) {
+    const city = await fs.read("CITY.md");
     await agent.run({
       title: `Mayor Day ${day}`,
-      prompt: `Given this city plan, propose one ambitious improvement:\n\n${city}`,
+      prompt: `Read this city plan and propose one ambitious improvement. Write your changes back to CITY.md:\n\n${city}`,
     });
-
     await agent.run({
       title: `Budget Office Day ${day}`,
-      prompt: "Now cut one expensive idea and force a compromise.",
+      prompt: "Read CITY.md and cut one expensive idea. Update the file with your compromise.",
     });
-
     await agent.run({
       title: `Citizen Day ${day}`,
-      prompt: "Now complain loudly about whatever the other two decided.",
+      prompt: "Read CITY.md and add a complaint about whatever the other two decided.",
     });
   }
 }
@@ -256,7 +248,6 @@ async function committee(_ctx, { agent, fs }) {
   }
 }
 ```
-
 
 ## Idea Tournament
 
