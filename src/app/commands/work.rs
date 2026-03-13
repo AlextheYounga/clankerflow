@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::app::types::RuntimeEnv;
+use crate::app::commands::manage;
 use crate::core::project::require_project_root;
 use crate::core::runner::{WorkflowArgs, WorkflowRunner};
 use crate::db::entities::workflow_run::RunStatus;
@@ -11,6 +12,9 @@ use crate::db::entities::workflow_run::RunStatus;
 pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let workflow_path = resolve_workflow(&project_root, &name)?;
+    if let Err(error) = manage::open_for_project_root(&project_root) {
+        eprintln!("warning: failed to open OpenCode UI: {error}");
+    }
 
     let args = WorkflowArgs {
         project_root: &project_root,

@@ -11,6 +11,12 @@ const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
 /// or the browser fails to open.
 pub fn run() -> anyhow::Result<()> {
     let project_root = require_project_root()?;
+    open_for_project_root(&project_root)
+}
+
+/// # Errors
+/// Returns an error if settings fail to load or the browser fails to open.
+pub fn open_for_project_root(project_root: &Path) -> anyhow::Result<()> {
     let settings = Settings::load(&project_root)?;
 
     let server_url = settings
