@@ -6,6 +6,11 @@ description = "Rust CLI for running deterministic AI workflows in your repositor
 license = "MIT"
 authors = ["Alex Younger"]
 readme = "README.md"
+repository = "https://github.com/AlextheYounga/clankerflow"
+homepage = "https://github.com/AlextheYounga/clankerflow"
+documentation = "https://github.com/AlextheYounga/clankerflow#readme"
+keywords = ["ai", "workflow", "cli", "automation", "agent"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "clankerflow"
