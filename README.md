@@ -1,28 +1,20 @@
 <p align="center">
-  <img src="docs/images/clankerflow.png" alt="clankerflow logo" width="160" />
+  <img src="docs/images/logo.png" alt="clankerflow logo" style="width: 80%; min-width: 300px;" />
 </p>
 
-# clankerflow
+# ClankerFLow
 
 `clankerflow` is a Rust CLI, drop-in OpenCode framework that allows you to run deterministic AI workflows in your repository using readable Typescript. 
 Get the full power of OpenCode with the full power of a programming language. Workflows can be easily containerized for yolo mode or run rawdog on your machine. 
 
 Workflows are authored in TypeScript and executed by a managed Node runtime, while Rust owns orchestration, state, and OpenCode lifecycle calls.
 
-```ts
-async function showcase(ctx, { agent, tickets, git }) {
-  await agent.run({ title: "Planner", prompt: "Create one small feature ticket." });
+<p>
+  <img src="docs/images/carbon-dark.png" alt="workflow showcase" style="width: 80%; min-width: 300px;" />
+</p>
 
-  const ticket = ctx.ticket ?? (await tickets.getNext({ status: "OPEN" })).ticket;
-  if (!ticket) throw new Error("No open ticket found");
-
-  await git.checkoutBranch(ticket.branch ?? `ticket-${ticket.ticketId}`, "master");
-  await tickets.updateStatus({ id: ticket.ticketId, status: "IN_PROGRESS" });
-
-  await agent.run({ title: "Dev", prompt: `Implement ${ticket.filePath}` });
-  await agent.run({ title: "QA", prompt: `Review ${ticket.filePath}` });
-}
-```
+## Example Workflows
+See more example workflows in our example document [here](docs/examples.md)
 
 ## What it does
 
@@ -38,16 +30,6 @@ async function showcase(ctx, { agent, tickets, git }) {
 - Node + npm (used during `clankerflow init` to install runtime dependencies).
 - Docker (only if you use containment mode).
 - OpenCode local server reachable at `http://127.0.0.1:4096` by default.
-
-You can override the OpenCode URL in `.agents/settings.json`:
-
-```json
-{
-  "opencode": {
-    "server_url": "http://127.0.0.1:4096"
-  }
-}
-```
 
 ## Install and build
 
