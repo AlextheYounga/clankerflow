@@ -4,7 +4,8 @@
 
 # clankerflow
 
-`clankerflow` is a Rust CLI for running AI workflows in your repository.
+`clankerflow` is a Rust CLI, drop-in OpenCode framework that allows you to run Turing-complete AI workflows in your repository using readable Typescript. 
+Workflows can be easily containerized or run rawdog on your machine. 
 
 Workflows are authored in TypeScript and executed by a managed Node runtime, while Rust owns orchestration, state, and OpenCode lifecycle calls.
 
