@@ -2,7 +2,7 @@
   <img src="docs/images/logo.png" alt="clankerflow logo" style="width: 80%; min-width: 300px;" />
 </p>
 
-# ClankerFLow
+# ClankerFlow
 
 `clankerflow` is a Rust CLI, drop-in OpenCode framework that allows you to run deterministic AI workflows in your repository using readable Typescript. 
 Get the full power of OpenCode with the full power of a programming language. Workflows can be easily containerized for yolo mode or run rawdog on your machine. 
