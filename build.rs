@@ -7,6 +7,10 @@ use std::process::Command;
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=src/kit.md");
 
+    if env::var_os("CARGO_FEATURE_TEST_RUNNER_BUNDLE").is_none() {
+        return Ok(());
+    }
+
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
     let test_runtime_dir = target_dir()?.join("test-runtime");
     let bundled_runner = test_runtime_dir.join("runner.cjs");

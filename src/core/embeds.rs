@@ -69,10 +69,22 @@ fn enable_gitignore(agents_dir: &Path) {
 
 fn clear_gitkeeps(agents_dir: &Path) {
     let pattern = agents_dir.join("**/.gitkeep").to_string_lossy().to_string();
-    for entry in glob(&pattern).expect("Failed to read glob pattern") {
+    let paths = match glob(&pattern) {
+        Ok(paths) => paths,
+        Err(err) => {
+            eprintln!("Failed to read glob pattern: {err}");
+            return;
+        }
+    };
+
+    for entry in paths {
         match entry {
-            Ok(path) => println!("{:?}", path.display()),
-            Err(e) => println!("{:?}", e),
+            Ok(path) => {
+                if let Err(err) = fs::remove_file(&path) {
+                    eprintln!("Failed to remove {}: {err}", path.display());
+                }
+            }
+            Err(err) => eprintln!("Failed to read glob entry: {err}"),
         }
     }
 }

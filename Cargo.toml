@@ -16,6 +16,10 @@ categories = ["command-line-utilities", "development-tools"]
 name = "clankerflow"
 path = "src/main.rs"
 
+[features]
+default = []
+test-runner-bundle = []
+
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"

@@ -1,3 +1,5 @@
+#![cfg(feature = "test-runner-bundle")]
+
 mod support;
 
 use clankerflow::app::types::RuntimeEnv;
