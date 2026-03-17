@@ -34,7 +34,12 @@ See more example workflows in our example document [here](docs/examples.md)
 - OpenCode local server reachable at `http://127.0.0.1:4096` by default.
 
 ## Install and build
+**As Crate from [crates.io](https://crates.io/crates/clankerflow):**
+```bash
+cargo install clankerflow
+```
 
+**From source:**
 ```bash
 cargo install --git https://github.com/AlextheYounga/clankerflow.git clankerflow
 ```
