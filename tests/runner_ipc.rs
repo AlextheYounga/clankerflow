@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use clankerflow::core::embeds::copy_kit;
-use clankerflow::core::opencode::OpencodeService;
-use clankerflow::core::runner::ipc_loop::{IpcLoopContext, handle_runner_line};
+use clankerflow::core::opencode::Gateway;
+use clankerflow::core::runner::ipc_loop::{Context, handle_runner_line};
 use clankerflow::core::runner::protocol::LoopControl;
 use clankerflow::core::runner::signal::CancelState;
 use clankerflow::core::runner::store::{create_run, upsert_workflow};
@@ -91,7 +91,7 @@ async fn handle_runner_line_persists_run_failed_payload_with_error_details() {
     assert_eq!(payload["failed_at"], "2026-03-12T05:50:57.227Z");
 }
 
-async fn test_ipc_context(project: &TempDir) -> IpcLoopContext {
+async fn test_ipc_context(project: &TempDir) -> Context {
     let db = connect(project.path()).await.unwrap();
     let workflow_id = upsert_workflow(&db, "test", &project.path().join("test.ts"))
         .await
@@ -103,9 +103,9 @@ async fn test_ipc_context(project: &TempDir) -> IpcLoopContext {
         cancelled: AtomicBool::new(false),
         force_kill: AtomicBool::new(false),
     });
-    let opencode = OpencodeService::from_project_root(project.path()).unwrap();
+    let opencode = Gateway::from_project_root(project.path()).unwrap();
 
-    IpcLoopContext {
+    Context {
         db,
         run_id,
         cancel,

@@ -8,7 +8,7 @@ use tokio::io::{self as tokio_io, AsyncBufReadExt, AsyncWrite, BufReader};
 use tokio::net::TcpStream;
 
 use crate::core::ipc::Message;
-use crate::core::opencode::OpencodeService;
+use crate::core::opencode::Gateway;
 use crate::db::entities::workflow_run::RunStatus;
 
 use super::WorkflowArgs;
@@ -16,13 +16,17 @@ use super::protocol::{LoopControl, send_cancel, write_message};
 use super::signal::CancelState;
 use super::store::{append_run_event, create_workflow_session, set_status};
 
-pub struct IpcLoopContext {
+pub struct Context {
     pub db: DatabaseConnection,
     pub run_id: i64,
     pub cancel: Arc<CancelState>,
-    pub opencode: OpencodeService,
+    pub opencode: Gateway,
 }
 
+/// Send the `start_run` command to the Node runner over IPC.
+///
+/// # Errors
+/// Returns an error if the IPC message cannot be serialized or written.
 pub async fn send_start_run(
     ipc_write: &mut (impl AsyncWrite + Unpin),
     args: &WorkflowArgs<'_>,
@@ -43,8 +47,13 @@ pub async fn send_start_run(
     Ok(())
 }
 
-pub async fn drive_ipc_loop(
-    ctx: &IpcLoopContext,
+/// Process runner IPC events until completion, cancellation, or disconnect.
+///
+/// # Errors
+/// Returns an error if reading from IPC fails or if database/message handling
+/// operations fail while processing a line.
+pub async fn drive(
+    ctx: &Context,
     ipc_write: &mut (impl AsyncWrite + Unpin),
     ipc_read: tokio_io::ReadHalf<TcpStream>,
 ) -> Result<RunStatus> {
@@ -84,8 +93,13 @@ pub async fn drive_ipc_loop(
     Ok(final_status)
 }
 
+/// Handle a single line emitted by the Node runner.
+///
+/// # Errors
+/// Returns an error if writing a response fails or if persistence/state update
+/// operations fail.
 pub async fn handle_runner_line(
-    ctx: &IpcLoopContext,
+    ctx: &Context,
     ipc_write: &mut (impl AsyncWrite + Unpin),
     line: &str,
 ) -> Result<(LoopControl, Option<RunStatus>)> {
@@ -138,7 +152,7 @@ async fn persist_session_from_event(
     Ok(())
 }
 
-fn session_id_from_event<'a>(message: &'a Message) -> Option<&'a str> {
+fn session_id_from_event(message: &Message) -> Option<&str> {
     if message.name != "agent_session_started" {
         return None;
     }

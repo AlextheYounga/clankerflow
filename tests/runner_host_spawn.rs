@@ -1,7 +1,7 @@
 mod support;
 
 use clankerflow::app::types::RuntimeEnv;
-use clankerflow::core::runner::{WorkflowArgs, WorkflowRunner};
+use clankerflow::core::runner::{WorkflowArgs, WorkflowEngine};
 use clankerflow::db::entities::workflow_run::RunStatus;
 use serde_json::Value;
 
@@ -36,7 +36,7 @@ async fn run_persists_workflow_progress_from_spawned_host_runner() {
         yolo: true,
     };
 
-    let final_status = WorkflowRunner::run(&args).await.unwrap();
+    let final_status = WorkflowEngine::run(&args).await.unwrap();
     let run = stored_run(project.path(), "demo").await;
     let run_started = event_payloads(project.path(), run.id, "run_started").await;
     let step_started = event_payloads(project.path(), run.id, "step_started").await;

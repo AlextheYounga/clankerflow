@@ -10,6 +10,10 @@ pub enum LoopControl {
     Stop,
 }
 
+/// Serialize and write a single IPC message as one newline-delimited JSON line.
+///
+/// # Errors
+/// Returns an error if serialization fails or if writing to the IPC stream fails.
 pub async fn write_message(
     ipc_write: &mut (impl AsyncWrite + Unpin),
     message: &Message,

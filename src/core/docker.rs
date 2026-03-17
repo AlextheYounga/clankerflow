@@ -167,7 +167,9 @@ mod tests {
 
         assert_eq!(
             path,
-            PathBuf::from("/home/user/project/.agents/.clankerflow/docker/agent.docker-compose.yaml")
+            PathBuf::from(
+                "/home/user/project/.agents/.clankerflow/docker/agent.docker-compose.yaml"
+            )
         );
     }
 

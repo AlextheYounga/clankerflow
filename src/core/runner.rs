@@ -18,12 +18,12 @@ use tokio::time::timeout;
 
 use crate::app::types::RuntimeEnv;
 use crate::core::codebase_id;
-use crate::core::opencode::OpencodeService;
+use crate::core::opencode::Gateway;
 use crate::db::connection::connect;
 use crate::db::entities::workflow_run::RunStatus;
 
 use env::{parse_runtime_env, spawn_container_runner, spawn_host_runner};
-use ipc_loop::{IpcLoopContext, drive_ipc_loop, send_start_run};
+use ipc_loop::{Context, drive, send_start_run};
 use protocol::send_shutdown;
 use signal::{CancelState, install_signal_handler, wait_for_child};
 use store::{create_run, upsert_workflow};
@@ -37,9 +37,9 @@ pub struct WorkflowArgs<'a> {
     pub yolo: bool,
 }
 
-pub struct WorkflowRunner {
+pub struct WorkflowEngine {
     process: RunnerProcess,
-    /// Bidirectional TCP IPC channel. Taken by `WorkflowRunner::run` after spawn;
+    /// Bidirectional TCP IPC channel. Taken by `WorkflowEngine::run` after spawn;
     /// `None` once consumed.
     ipc: Option<TcpStream>,
 }
@@ -48,7 +48,12 @@ enum RunnerProcess {
     Child(Child),
 }
 
-impl WorkflowRunner {
+impl WorkflowEngine {
+    /// Run a workflow to completion and return its final status.
+    ///
+    /// # Errors
+    /// Returns an error if runner setup fails, IPC communication fails, or
+    /// process/database operations fail during execution.
     pub async fn run(args: &WorkflowArgs<'_>) -> Result<RunStatus> {
         let ctx = Self::create_run_context(args).await?;
         let codebase_id = codebase_id::derive(args.project_root);
@@ -58,7 +63,7 @@ impl WorkflowRunner {
 
     async fn run_with_context(
         args: &WorkflowArgs<'_>,
-        ctx: IpcLoopContext,
+        ctx: Context,
         mut runner: Self,
     ) -> Result<RunStatus> {
         let _ = args;
@@ -68,7 +73,7 @@ impl WorkflowRunner {
         send_start_run(&mut ipc_write, args, ctx.run_id).await?;
         install_signal_handler(&ctx.cancel);
 
-        let final_status = drive_ipc_loop(&ctx, &mut ipc_write, ipc_read).await?;
+        let final_status = drive(&ctx, &mut ipc_write, ipc_read).await?;
 
         send_shutdown(&mut ipc_write).await;
         drop(ipc_write);
@@ -77,7 +82,7 @@ impl WorkflowRunner {
         Ok(final_status)
     }
 
-    async fn create_run_context(args: &WorkflowArgs<'_>) -> Result<IpcLoopContext> {
+    async fn create_run_context(args: &WorkflowArgs<'_>) -> Result<Context> {
         let db = connect(args.project_root).await?;
         let workflow_env = parse_runtime_env(args.env);
         let workflow_id = upsert_workflow(&db, args.workflow_name, args.workflow_path).await?;
@@ -90,9 +95,9 @@ impl WorkflowRunner {
             force_kill: AtomicBool::new(false),
         });
 
-        let opencode = OpencodeService::from_project_root(args.project_root)?;
+        let opencode = Gateway::from_project_root(args.project_root)?;
 
-        Ok(IpcLoopContext {
+        Ok(Context {
             db,
             run_id,
             cancel,

@@ -11,6 +11,10 @@ use crate::db::entities::workflow::ActiveModel as WorkflowActive;
 use crate::db::entities::workflow_run::{ActiveModel as WorkflowRunActive, RunStatus, WorkflowEnv};
 use crate::db::entities::workflow_session::ActiveModel as WorkflowSessionActive;
 
+/// Find or create a workflow record for a workflow path.
+///
+/// # Errors
+/// Returns an error if database read/insert operations fail.
 pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -> Result<i64> {
     use crate::db::entities::workflow::{Column as WorkflowColumn, Entity as Workflow};
 
@@ -37,6 +41,10 @@ pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -
     Ok(inserted.id)
 }
 
+/// Create a workflow run record in `pending` state.
+///
+/// # Errors
+/// Returns an error if inserting the run row fails.
 pub async fn create_run(
     db: &DatabaseConnection,
     workflow_id: i64,
@@ -59,6 +67,10 @@ pub async fn create_run(
     Ok(inserted.id)
 }
 
+/// Update the run status and timestamps for a workflow run.
+///
+/// # Errors
+/// Returns an error if updating the run row fails.
 pub async fn set_status(db: &DatabaseConnection, id: i64, status: RunStatus) -> Result<()> {
     let now = chrono::Utc::now();
     // `completed_at` is only meaningful for terminal states; keeping it null for
@@ -82,6 +94,10 @@ pub async fn set_status(db: &DatabaseConnection, id: i64, status: RunStatus) -> 
     Ok(())
 }
 
+/// Append an event record for a workflow run.
+///
+/// # Errors
+/// Returns an error if inserting the event row fails.
 pub async fn append_run_event(
     db: &DatabaseConnection,
     id: i64,
@@ -102,6 +118,10 @@ pub async fn append_run_event(
     Ok(())
 }
 
+/// Persist an association between a workflow run and an `OpenCode` session.
+///
+/// # Errors
+/// Returns an error if inserting the session row fails.
 pub async fn create_workflow_session(
     db: &DatabaseConnection,
     run_id: i64,

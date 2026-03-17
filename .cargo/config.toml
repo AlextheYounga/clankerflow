@@ -1,4 +1,5 @@
 [alias]
+bundle-kit = "run --bin cargo-kit -- bundle"
 cov = "llvm-cov --workspace --all-features --lcov --output-path coverage/lcov.info"
 cov-html = "llvm-cov --workspace --all-features --html --output-dir coverage/html"
 cov-text = "llvm-cov --workspace --all-features"

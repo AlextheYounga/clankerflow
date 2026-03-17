@@ -116,7 +116,8 @@ mod tests {
 
     #[test]
     fn work_command_parses_container_env() {
-        let cli = Cli::try_parse_from(["clankerflow", "work", "duos", "--env", "container"]).unwrap();
+        let cli =
+            Cli::try_parse_from(["clankerflow", "work", "duos", "--env", "container"]).unwrap();
 
         match cli.command {
             Commands::Work { env, .. } => assert_eq!(env, RuntimeEnv::Container),
@@ -159,7 +160,8 @@ mod tests {
 
     #[test]
     fn containment_conflicts_with_explicit_yolo_at_parse_level() {
-        let result = Cli::try_parse_from(["clankerflow", "work", "duos", "--containment", "--yolo"]);
+        let result =
+            Cli::try_parse_from(["clankerflow", "work", "duos", "--containment", "--yolo"]);
 
         assert!(result.is_err());
     }
@@ -190,7 +192,8 @@ mod tests {
 
     #[test]
     fn make_worktree_command_parses_branch() {
-        let cli = Cli::try_parse_from(["clankerflow", "make", "worktree", "feat/new-branch"]).unwrap();
+        let cli =
+            Cli::try_parse_from(["clankerflow", "make", "worktree", "feat/new-branch"]).unwrap();
 
         match cli.command {
             Commands::Make { command } => match command {

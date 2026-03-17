@@ -17,7 +17,7 @@ pub fn run() -> anyhow::Result<()> {
 /// # Errors
 /// Returns an error if settings fail to load or the browser fails to open.
 pub fn open_for_project_root(project_root: &Path) -> anyhow::Result<()> {
-    let settings = Settings::load(&project_root)?;
+    let settings = Settings::load(project_root)?;
 
     let server_url = settings
         .opencode
@@ -25,7 +25,7 @@ pub fn open_for_project_root(project_root: &Path) -> anyhow::Result<()> {
         .and_then(|o| o.server_url.as_deref())
         .unwrap_or(DEFAULT_OPENCODE_URL);
 
-    let url = build_manage_url(server_url, &project_root);
+    let url = build_manage_url(server_url, project_root);
     println!("Opening {url}");
     open::that(&url)?;
     Ok(())

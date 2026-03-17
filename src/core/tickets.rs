@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const TICKET_TEMPLATE: &str = include_str!("../kit/context/templates/ticket-template.md");
+const TICKET_TEMPLATE: &str = include_str!("../../kit/context/templates/ticket-template.md");
 
 /// Create a new ticket in `<project_root>/.agents/tickets/` and return
 /// the filename (e.g. `T-001.md`).

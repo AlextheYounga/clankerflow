@@ -8,6 +8,7 @@ use opencode_sdk::types::message::{CommandRequest, Message, PromptPart, PromptRe
 use opencode_sdk::types::project::ModelRef;
 use opencode_sdk::types::session::CreateSessionRequest;
 use serde_json::{Value, json};
+use tokio::time::timeout;
 
 use crate::core::settings::Settings;
 
@@ -16,13 +17,13 @@ const RUN_TIMEOUT: Duration = Duration::from_secs(300);
 const EVENTS_WINDOW: Duration = Duration::from_millis(250);
 
 #[derive(Clone)]
-pub struct OpencodeService {
+pub struct Gateway {
     client: Client,
 }
 
-impl OpencodeService {
+impl Gateway {
     /// # Errors
-    /// Returns an error if settings cannot be read or if the OpenCode client
+    /// Returns an error if settings cannot be read or if the `OpenCode` client
     /// cannot be constructed.
     pub fn from_project_root(project_root: &Path) -> Result<Self> {
         let settings = Settings::load(project_root)?;
@@ -43,7 +44,7 @@ impl OpencodeService {
 
     /// # Errors
     /// Returns an error when request payload validation fails or when the
-    /// OpenCode API call fails.
+    /// `OpenCode` API call fails.
     pub async fn dispatch(&self, request_name: &str, payload: &Value) -> Result<Value> {
         match request_name {
             "opencode_run" => self.run(payload).await,
@@ -57,8 +58,10 @@ impl OpencodeService {
 
     async fn run(&self, payload: &Value) -> Result<Value> {
         let prompt = require_prompt(payload)?;
-        let mut create = CreateSessionRequest::default();
-        create.title = read_trimmed_string(payload, "title");
+        let create = CreateSessionRequest {
+            title: read_trimmed_string(payload, "title"),
+            ..Default::default()
+        };
 
         let session = self.client.sessions().create(&create).await?;
 
@@ -137,11 +140,7 @@ impl OpencodeService {
 
         while Instant::now() < deadline {
             let remaining = deadline.saturating_duration_since(Instant::now());
-            let Some(event) = tokio::time::timeout(remaining, subscription.recv())
-                .await
-                .ok()
-                .flatten()
-            else {
+            let Some(event) = timeout(remaining, subscription.recv()).await.ok().flatten() else {
                 break;
             };
 

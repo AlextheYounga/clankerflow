@@ -145,6 +145,12 @@ if (started.session_id) {
 
 ## Development
 
+Rebuild the embedded scaffold bundle after changing files in `kit/` or runtime workflow assets:
+
+```bash
+cargo bundle-kit
+```
+
 Run Rust tests:
 
 ```bash

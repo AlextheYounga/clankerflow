@@ -1,11 +1,11 @@
+use glob::glob;
 use std::fs;
 use std::path::Path;
 
-use rust_embed::Embed;
+use mdpack::{UnpackOptions, unpack_from_str};
 
-#[derive(Embed)]
-#[folder = "src/kit/"]
-struct Kit;
+const KIT_BUNDLE: &str = include_str!("../kit.md");
+const OPENCODE_CONFIG: &str = include_str!("../../kit/opencode.json");
 
 /// Write every embedded kit file into `<project_root>/.agents/`.
 ///
@@ -16,29 +16,23 @@ pub fn copy_kit(project_root: &Path, is_reinit: bool) -> anyhow::Result<()> {
     copy_kit_into(project_root, is_reinit)
 }
 
-fn copy_kit_into(project_root: &Path, _is_reinit: bool) -> anyhow::Result<()> {
+fn copy_kit_into(project_root: &Path, is_reinit: bool) -> anyhow::Result<()> {
     let agents_dir = project_root.join(".agents");
+    fs::create_dir_all(&agents_dir)?;
+    unpack_from_str(
+        KIT_BUNDLE,
+        Some(&agents_dir),
+        UnpackOptions { force: is_reinit },
+    )
+    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
 
-    for path in Kit::iter() {
-        let rel: &str = &path;
-
-        // opencode.json is placed separately via place_opencode_config.
-        if rel == "opencode.json" {
-            continue;
-        }
-
-        let dest = agents_dir.join(rel);
-
-        if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        let file =
-            Kit::get(rel).ok_or_else(|| anyhow::anyhow!("embedded kit file missing: {rel}"))?;
-        fs::write(&dest, file.data)?;
+    let agents_opencode = agents_dir.join("opencode.json");
+    if agents_opencode.exists() {
+        fs::remove_file(agents_opencode)?;
     }
 
     enable_gitignore(&agents_dir);
+    clear_gitkeeps(&agents_dir);
 
     Ok(())
 }
@@ -54,25 +48,32 @@ pub fn place_opencode_config(project_root: &Path) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let file = Kit::get("opencode.json")
-        .ok_or_else(|| anyhow::anyhow!("embedded asset 'opencode.json' is missing"))?;
-
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(&dest, file.data)?;
+    fs::write(&dest, OPENCODE_CONFIG)?;
 
     Ok(())
 }
 
 fn enable_gitignore(agents_dir: &Path) {
-    let sample_gitignore = agents_dir.join("gitignore.example");
+    let sample_gitignore = agents_dir.join(".example.gitignore");
     let target_path = agents_dir.join(".gitignore");
 
     if sample_gitignore.exists() {
         fs::rename(sample_gitignore, target_path).unwrap_or_else(|e| {
             eprintln!("Failed to rename gitignore: {e}");
         });
+    }
+}
+
+fn clear_gitkeeps(agents_dir: &Path) {
+    let pattern = agents_dir.join("**/.gitkeep").to_string_lossy().to_string();
+    for entry in glob(&pattern).expect("Failed to read glob pattern") {
+        match entry {
+            Ok(path) => println!("{:?}", path.display()),
+            Err(e) => println!("{:?}", e),
+        }
     }
 }
 

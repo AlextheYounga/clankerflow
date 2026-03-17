@@ -34,6 +34,11 @@ pub fn install_signal_handler(cancel: &Arc<CancelState>) {
     });
 }
 
+/// Wait for the runner process to exit, escalating to kill after the grace period.
+///
+/// # Errors
+/// Returns an error if querying process status fails or if the process exits with
+/// a non-zero status other than the cancellation status code.
 pub async fn wait_for_child(child: &mut Child, cancel: &Arc<CancelState>) -> Result<()> {
     let deadline = Instant::now() + SHUTDOWN_GRACE_PERIOD;
 
