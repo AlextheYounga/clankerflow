@@ -1696,9 +1696,9 @@ dependencies = [
 
 [[package]]
 name = "mdpack"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c1297443ed83f3057efb8e4b148961c4d32e1d47fe7d925b46e3af9349029e8"
+checksum = "1370b884ffa2fc7bd865b8ec625e833670253b370b1f316b50d7a80d5e87dbdd"
 dependencies = [
  "clap",
  "ignore",

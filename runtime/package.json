@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "gray-matter": "^4.0.3",
-    "simple-git": "^3.32.3"
+    "simple-git": "^3.32.3",
+    "tsx": "^4.21.0"
   }
 }

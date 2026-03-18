@@ -27,7 +27,7 @@ base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 glob = "0.3.3"
-mdpack = "0.1.1"
+mdpack = "0.1.2"
 open = "5"
 opencode-sdk = "0.1.7"
 sea-orm = { version = "2.0.0-rc.36", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
