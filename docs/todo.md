@@ -15,7 +15,7 @@ Legend: `[x]` done, `[ ]` not started, `[~]` partially done / stub exists.
 - [x] `clankerflow manage` — Opens OpenCode web UI in default browser via `open` crate
 - [x] URL built from base64-encoded project path (`http://{server}/{base64(path)}/sessions`)
 - [x] `codebase_id` changed from random hex to base64-encoded project path
-- [x] `OpencodeConfig` loaded from `.opencode/opencode.json` with optional `server_url` (default `http://127.0.0.1:4096`)
+- [x] `Config` loaded from `.opencode/opencode.json` with optional `server_url` (default `http://127.0.0.1:4096`)
 - [x] `opencode.json` template includes `server_url`
 - [x] `clankerflow work` drives the entire lifecycle in a single foreground process (no daemon)
 - [x] `src/core/runner.rs` — `WorkflowRunner::run()` spawns Node, runs IPC loop, returns final status

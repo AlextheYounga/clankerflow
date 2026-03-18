@@ -3,7 +3,6 @@ pub mod docker;
 pub mod embeds;
 pub mod ipc;
 pub mod opencode;
-pub mod opencode_config;
 pub mod project;
 pub mod runner;
 pub mod settings;

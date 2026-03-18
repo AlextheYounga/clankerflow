@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::core::codebase_id;
-use crate::core::opencode_config::OpencodeConfig;
+use crate::core::opencode::config::Config;
 use crate::core::project::require_project_root;
 
 const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
@@ -17,7 +17,7 @@ pub fn run() -> anyhow::Result<()> {
 /// # Errors
 /// Returns an error if `OpenCode` config parsing fails or the browser fails to open.
 pub fn open_for_project_root(project_root: &Path) -> anyhow::Result<()> {
-    let config = OpencodeConfig::load_optional(project_root)?;
+    let config = Config::load_optional(project_root)?;
 
     let server_url = config
         .as_ref()

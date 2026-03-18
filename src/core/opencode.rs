@@ -10,7 +10,8 @@ use opencode_sdk::types::session::CreateSessionRequest;
 use serde_json::{Value, json};
 use tokio::time::timeout;
 
-use crate::core::opencode_config::OpencodeConfig;
+pub mod config;
+use config::Config;
 
 const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
 const RUN_TIMEOUT: Duration = Duration::from_secs(300);
@@ -26,7 +27,7 @@ impl Gateway {
     /// Returns an error if `OpenCode` config cannot be parsed or if the `OpenCode` client
     /// cannot be constructed.
     pub fn from_project_root(project_root: &Path) -> Result<Self> {
-        let config = OpencodeConfig::load_optional(project_root)?;
+        let config = Config::load_optional(project_root)?;
         let server_url = config
             .as_ref()
             .and_then(|cfg| cfg.server_url.as_deref())

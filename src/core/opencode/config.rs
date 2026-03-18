@@ -7,11 +7,11 @@ use serde::Deserialize;
 const OPENCODE_CONFIG_PATH: &str = ".opencode/opencode.json";
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct OpencodeConfig {
+pub struct Config {
     pub server_url: Option<String>,
 }
 
-impl OpencodeConfig {
+impl Config {
     /// # Errors
     /// Returns an error if the config file cannot be read or parsed.
     pub fn load(project_root: &Path) -> anyhow::Result<Self> {
@@ -57,7 +57,7 @@ mod tests {
 }"#;
         fs::write(dir.path().join(".opencode/opencode.json"), json).unwrap();
 
-        let config = OpencodeConfig::load(dir.path()).unwrap();
+        let config = Config::load(dir.path()).unwrap();
 
         assert_eq!(config.server_url.as_deref(), Some("http://10.0.0.5:8080"));
     }
@@ -71,7 +71,7 @@ mod tests {
 }"#;
         fs::write(dir.path().join(".opencode/opencode.json"), json).unwrap();
 
-        let config = OpencodeConfig::load(dir.path()).unwrap();
+        let config = Config::load(dir.path()).unwrap();
 
         assert!(config.server_url.is_none());
     }
@@ -80,7 +80,7 @@ mod tests {
     fn load_errors_when_file_is_missing() {
         let dir = TempDir::new().unwrap();
 
-        let result = OpencodeConfig::load(dir.path());
+        let result = Config::load(dir.path());
 
         assert!(result.is_err());
     }
@@ -89,7 +89,7 @@ mod tests {
     fn load_optional_returns_none_when_file_is_missing() {
         let dir = TempDir::new().unwrap();
 
-        let result = OpencodeConfig::load_optional(dir.path()).unwrap();
+        let result = Config::load_optional(dir.path()).unwrap();
 
         assert!(result.is_none());
     }
