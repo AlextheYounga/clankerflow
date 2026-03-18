@@ -36,9 +36,12 @@ pub async fn run() -> anyhow::Result<()> {
         println!("Initialized clankerflow in {}", project_root.display());
         println!("  .agents/                 framework scaffold");
         println!("  .agents/settings.json    project settings");
+        println!("  .opencode/opencode.json OpenCode project config");
         println!("  .agents/workflows/       put your workflows here");
         println!();
-        println!("Next: edit .agents/settings.json, then run `clankerflow work <name>`.");
+        println!(
+            "Next: edit .agents/settings.json and .opencode/opencode.json, then run `clankerflow work <name>`."
+        );
     }
 
     Ok(())
@@ -70,6 +73,7 @@ fn confirm_overwrite() -> anyhow::Result<bool> {
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use tempfile::TempDir;

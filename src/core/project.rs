@@ -45,6 +45,7 @@ pub fn require_project_root() -> Result<PathBuf> {
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::fs;

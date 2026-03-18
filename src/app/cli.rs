@@ -91,6 +91,11 @@ fn resolve_work_flags(
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::match_wildcard_for_single_variants
+)]
 mod tests {
     use super::*;
 

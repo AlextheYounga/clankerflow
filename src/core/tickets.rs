@@ -106,6 +106,7 @@ fn render_template(ticket_id: &str, title: Option<&str>, branch: Option<&str>) -
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use tempfile::TempDir;

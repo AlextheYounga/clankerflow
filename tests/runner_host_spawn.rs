@@ -1,4 +1,5 @@
 #![cfg(feature = "test-runner-bundle")]
+#![expect(clippy::absolute_paths, clippy::unwrap_used)]
 
 mod support;
 
@@ -26,6 +27,8 @@ async fn run_persists_workflow_progress_from_spawned_host_runner() {
     let project = setup_project("demo", SUCCESS_WORKFLOW);
     let workflow_path = workflow_path(project.path(), "demo");
 
+    // SAFETY: this test sets a process-local environment variable before using
+    // the runner and does not rely on concurrent mutation.
     unsafe {
         std::env::set_var("CLANKERFLOW_HOST_RUNNER_BUNDLE", test_runner_bundle());
     }

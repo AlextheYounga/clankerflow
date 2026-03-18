@@ -6893,6 +6893,7 @@ Describe the high-level structure and key components.
 	"$schema": "https://opencode.ai/config.json",
 	"theme": "system",
 	"autoupdate": false,
+	"server_url": "http://127.0.0.1:4096",
 	"model": "opencode/big-pickle"
 }
 ```
@@ -6908,9 +6909,6 @@ Describe the high-level structure and key components.
   },
   "workflows": {
     "default": "Default"
-  },
-  "opencode": {
-    "server_url": "http://127.0.0.1:4096"
   }
 }
 ```

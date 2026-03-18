@@ -18,15 +18,9 @@ pub struct WorkflowConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OpencodeConfig {
-    pub server_url: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub git: GitConfig,
     pub workflows: WorkflowConfig,
-    pub opencode: Option<OpencodeConfig>,
 }
 
 impl Settings {
@@ -51,6 +45,7 @@ impl Settings {
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::fs;
@@ -66,7 +61,6 @@ mod tests {
             workflows: WorkflowConfig {
                 default: "duos".to_string(),
             },
-            opencode: None,
         }
     }
 
@@ -126,50 +120,5 @@ mod tests {
         let result = Settings::load(dir.path());
 
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn load_reads_settings_without_opencode_field() {
-        let dir = setup();
-        let json = r#"{
-  "git": { "user_name": "Alex", "user_email": "alex@example.com", "default_branch": "main" },
-  "workflows": { "default": "duos" }
-}"#;
-        fs::write(dir.path().join(".agents/settings.json"), json).unwrap();
-
-        let settings = Settings::load(dir.path()).unwrap();
-
-        assert!(settings.opencode.is_none());
-    }
-
-    #[test]
-    fn load_reads_opencode_server_url() {
-        let dir = setup();
-        let json = r#"{
-  "git": { "user_name": "Alex", "user_email": "alex@example.com", "default_branch": "main" },
-  "workflows": { "default": "duos" },
-  "opencode": { "server_url": "http://10.0.0.5:8080" }
-}"#;
-        fs::write(dir.path().join(".agents/settings.json"), json).unwrap();
-
-        let settings = Settings::load(dir.path()).unwrap();
-
-        let url = settings.opencode.unwrap().server_url.unwrap();
-        assert_eq!(url, "http://10.0.0.5:8080");
-    }
-
-    #[test]
-    fn save_round_trips_opencode_settings() {
-        let dir = setup();
-        let mut settings = sample_settings();
-        settings.opencode = Some(OpencodeConfig {
-            server_url: Some("http://localhost:9000".to_string()),
-        });
-
-        settings.save(dir.path()).unwrap();
-        let loaded = Settings::load(dir.path()).unwrap();
-
-        let url = loaded.opencode.unwrap().server_url.unwrap();
-        assert_eq!(url, "http://localhost:9000");
     }
 }

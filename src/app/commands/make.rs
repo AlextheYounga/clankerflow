@@ -53,6 +53,30 @@ fn validate_branch_name(branch: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn create_git_worktree(
+    project_root: &Path,
+    branch: &str,
+    worktree_path: &Path,
+) -> anyhow::Result<()> {
+    let output = Command::new("git")
+        .args([
+            "worktree",
+            "add",
+            "-b",
+            branch,
+            &worktree_path.to_string_lossy(),
+        ])
+        .current_dir(project_root)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        anyhow::bail!("Failed to create git worktree: {stderr}");
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,28 +120,4 @@ mod tests {
             PathBuf::from("/tmp/project/.agents/.worktrees/feat/new-feature")
         );
     }
-}
-
-fn create_git_worktree(
-    project_root: &Path,
-    branch: &str,
-    worktree_path: &Path,
-) -> anyhow::Result<()> {
-    let output = Command::new("git")
-        .args([
-            "worktree",
-            "add",
-            "-b",
-            branch,
-            &worktree_path.to_string_lossy(),
-        ])
-        .current_dir(project_root)
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        anyhow::bail!("Failed to create git worktree: {stderr}");
-    }
-
-    Ok(())
 }

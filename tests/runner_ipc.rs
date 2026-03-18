@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used)]
+
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 

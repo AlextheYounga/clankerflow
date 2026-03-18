@@ -6,8 +6,5 @@
   },
   "workflows": {
     "default": "Default"
-  },
-  "opencode": {
-    "server_url": "http://127.0.0.1:4096"
   }
 }

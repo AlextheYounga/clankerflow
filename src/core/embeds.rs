@@ -90,6 +90,7 @@ fn clear_gitkeeps(agents_dir: &Path) {
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use tempfile::TempDir;

@@ -1,3 +1,5 @@
+#![expect(clippy::absolute_paths, clippy::unwrap_used)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

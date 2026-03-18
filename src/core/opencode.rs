@@ -10,7 +10,7 @@ use opencode_sdk::types::session::CreateSessionRequest;
 use serde_json::{Value, json};
 use tokio::time::timeout;
 
-use crate::core::settings::Settings;
+use crate::core::opencode_config::OpencodeConfig;
 
 const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
 const RUN_TIMEOUT: Duration = Duration::from_secs(300);
@@ -23,12 +23,11 @@ pub struct Gateway {
 
 impl Gateway {
     /// # Errors
-    /// Returns an error if settings cannot be read or if the `OpenCode` client
+    /// Returns an error if `OpenCode` config cannot be parsed or if the `OpenCode` client
     /// cannot be constructed.
     pub fn from_project_root(project_root: &Path) -> Result<Self> {
-        let settings = Settings::load(project_root)?;
-        let server_url = settings
-            .opencode
+        let config = OpencodeConfig::load_optional(project_root)?;
+        let server_url = config
             .as_ref()
             .and_then(|cfg| cfg.server_url.as_deref())
             .unwrap_or(DEFAULT_OPENCODE_URL);
@@ -245,6 +244,7 @@ fn latest_assistant_message_id(messages: &[Message]) -> Option<String> {
 }
 
 #[cfg(test)]
+#[expect(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

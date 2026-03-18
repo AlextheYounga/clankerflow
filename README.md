@@ -32,6 +32,7 @@ See more example workflows in our example document [here](docs/examples.md)
 - Node + npm (used during `clankerflow init` to install runtime dependencies).
 - Docker (only if you use containment mode).
 - OpenCode local server reachable at `http://127.0.0.1:4096` by default.
+- Configure a custom OpenCode API URL in `.opencode/opencode.json` via `server_url`.
 
 ## Install and build
 **As Crate from [crates.io](https://crates.io/crates/clankerflow):**

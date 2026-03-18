@@ -5,7 +5,7 @@ Legend: `[x]` done, `[ ]` not started, `[~]` partially done / stub exists.
 ## Done
 
 - [x] `src/core/embeds.rs` — `copy_kit()` and `place_gitignore()` via `rust-embed`
-- [x] `src/core/settings.rs` — `Settings` struct with `GitConfig`, `WorkflowConfig`, `OpencodeConfig`; load/save JSON
+- [x] `src/core/settings.rs` — `Settings` struct with `GitConfig` and `WorkflowConfig`; load/save JSON
 - [x] `src/core/tickets.rs` — Ticket creation with auto-increment `T-NNN`, template rendering, branch/title substitution
 - [x] `src/core/project.rs` — Walk-up project root discovery (`.agents/` marker)
 - [x] `clankerflow init` — Fresh init + re-init (preserves user files), codebase_id stamping, DB migration
@@ -15,8 +15,8 @@ Legend: `[x]` done, `[ ]` not started, `[~]` partially done / stub exists.
 - [x] `clankerflow manage` — Opens OpenCode web UI in default browser via `open` crate
 - [x] URL built from base64-encoded project path (`http://{server}/{base64(path)}/sessions`)
 - [x] `codebase_id` changed from random hex to base64-encoded project path
-- [x] `OpencodeSettings` struct with optional `server_url` (default `http://127.0.0.1:4096`)
-- [x] `settings.json` template includes `opencode` block
+- [x] `OpencodeConfig` loaded from `.opencode/opencode.json` with optional `server_url` (default `http://127.0.0.1:4096`)
+- [x] `opencode.json` template includes `server_url`
 - [x] `clankerflow work` drives the entire lifecycle in a single foreground process (no daemon)
 - [x] `src/core/runner.rs` — `WorkflowRunner::run()` spawns Node, runs IPC loop, returns final status
 - [x] `src/core/runner/protocol.rs` — `parse_capability_request_payload`, `write_message`, `send_cancel`, `send_shutdown`
