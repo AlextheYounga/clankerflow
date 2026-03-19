@@ -76,9 +76,7 @@ fn serve_args() -> [String; 5] {
 
 fn map_spawn_error(error: std::io::Error) -> anyhow::Error {
     if error.kind() == ErrorKind::NotFound {
-        anyhow!(
-            "`opencode` binary not found on PATH; install OpenCode CLI to run workflows"
-        )
+        anyhow!("`opencode` binary not found on PATH; install OpenCode CLI to run workflows")
     } else {
         anyhow!("failed to start OpenCode server: {error}")
     }
@@ -86,7 +84,10 @@ fn map_spawn_error(error: std::io::Error) -> anyhow::Error {
 
 async fn is_reachable() -> bool {
     let target = (DEFAULT_HOST, DEFAULT_PORT);
-    matches!(timeout(PROBE_TIMEOUT, TcpStream::connect(target)).await, Ok(Ok(_)))
+    matches!(
+        timeout(PROBE_TIMEOUT, TcpStream::connect(target)).await,
+        Ok(Ok(_))
+    )
 }
 
 #[cfg(test)]

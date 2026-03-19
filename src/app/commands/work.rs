@@ -12,7 +12,7 @@ use crate::db::entities::workflow_run::RunStatus;
 pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let workflow_path = resolve_workflow(&project_root, &name)?;
-    if let Err(error) = manage::open_for_project_root(&project_root) {
+    if let Err(error) = manage::open() {
         eprintln!("warning: failed to open OpenCode UI: {error}");
     }
 
