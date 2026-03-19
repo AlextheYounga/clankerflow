@@ -10,10 +10,8 @@ use opencode_sdk::types::session::CreateSessionRequest;
 use serde_json::{Value, json};
 use tokio::time::timeout;
 
-pub mod config;
-use config::Config;
+pub mod server;
 
-const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
 const RUN_TIMEOUT: Duration = Duration::from_secs(300);
 const EVENTS_WINDOW: Duration = Duration::from_millis(250);
 
@@ -24,17 +22,10 @@ pub struct Gateway {
 
 impl Gateway {
     /// # Errors
-    /// Returns an error if `OpenCode` config cannot be parsed or if the `OpenCode` client
-    /// cannot be constructed.
+    /// Returns an error if the `OpenCode` client cannot be constructed.
     pub fn from_project_root(project_root: &Path) -> Result<Self> {
-        let config = Config::load_optional(project_root)?;
-        let server_url = config
-            .as_ref()
-            .and_then(|cfg| cfg.server_url.as_deref())
-            .unwrap_or(DEFAULT_OPENCODE_URL);
-
         let client = Client::builder()
-            .base_url(server_url)
+            .base_url(server::DEFAULT_BASE_URL)
             .directory(project_root.to_string_lossy().to_string())
             .build()
             .map_err(|error| anyhow!("failed to build OpenCode client: {error}"))?;

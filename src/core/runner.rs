@@ -18,7 +18,7 @@ use tokio::time::timeout;
 
 use crate::app::types::RuntimeEnv;
 use crate::core::codebase_id;
-use crate::core::opencode::Gateway;
+use crate::core::opencode::{Gateway, server};
 use crate::db::connection::connect;
 use crate::db::entities::workflow_run::RunStatus;
 
@@ -95,6 +95,7 @@ impl WorkflowEngine {
             force_kill: AtomicBool::new(false),
         });
 
+        server::ensure_running().await?;
         let opencode = Gateway::from_project_root(args.project_root)?;
 
         Ok(Context {

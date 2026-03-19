@@ -31,8 +31,7 @@ See more example workflows in our example document [here](docs/examples.md)
 - Rust toolchain (edition 2024 compatible).
 - Node + npm (used during `clankerflow init` to install runtime dependencies).
 - Docker (only if you use containment mode).
-- OpenCode local server reachable at `http://127.0.0.1:4096` by default.
-- Configure a custom OpenCode API URL in `.opencode/opencode.json` via `server_url`.
+- OpenCode CLI (`opencode`) installed and on `PATH` (workflow runs auto-start `opencode serve` on `127.0.0.1:4096`).
 
 ## Install and build
 **As Crate from [crates.io](https://crates.io/crates/clankerflow):**

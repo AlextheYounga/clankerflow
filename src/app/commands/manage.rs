@@ -1,30 +1,21 @@
 use std::path::Path;
 
 use crate::core::codebase_id;
-use crate::core::opencode::config::Config;
+use crate::core::opencode::server::DEFAULT_BASE_URL;
 use crate::core::project::require_project_root;
 
-const DEFAULT_OPENCODE_URL: &str = "http://127.0.0.1:4096";
-
 /// # Errors
-/// Returns an error if the project root is not found, `OpenCode` config fails to load,
-/// or the browser fails to open.
+/// Returns an error if the project root is not found or the browser fails to
+/// open.
 pub fn run() -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     open_for_project_root(&project_root)
 }
 
 /// # Errors
-/// Returns an error if `OpenCode` config parsing fails or the browser fails to open.
+/// Returns an error if the browser fails to open.
 pub fn open_for_project_root(project_root: &Path) -> anyhow::Result<()> {
-    let config = Config::load_optional(project_root)?;
-
-    let server_url = config
-        .as_ref()
-        .and_then(|cfg| cfg.server_url.as_deref())
-        .unwrap_or(DEFAULT_OPENCODE_URL);
-
-    let url = build_manage_url(server_url, project_root);
+    let url = build_manage_url(DEFAULT_BASE_URL, project_root);
     println!("Opening {url}");
     open::that(&url)?;
     Ok(())
@@ -65,7 +56,7 @@ mod tests {
     }
 
     #[test]
-    fn build_manage_url_works_with_custom_server_url() {
+    fn build_manage_url_handles_non_default_input_base_url() {
         let url = build_manage_url("http://10.0.0.5:8080", Path::new("/tmp/project"));
 
         assert!(url.starts_with("http://10.0.0.5:8080/"));
