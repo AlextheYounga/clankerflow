@@ -30,6 +30,21 @@ pub enum Commands {
     },
     /// Open the `OpenCode` web UI for this project
     Manage,
+    #[command(hide = true)]
+    _Run {
+        #[arg(long)]
+        run_id: i64,
+        #[arg(long)]
+        workflow_name: String,
+        #[arg(long)]
+        workflow_path: String,
+        #[arg(long, value_enum)]
+        env: RuntimeEnv,
+        #[arg(long)]
+        project_root: String,
+        #[arg(long, default_value_t = false)]
+        yolo: bool,
+    },
     /// Generate project artifacts
     Make {
         #[command(subcommand)]
@@ -58,6 +73,24 @@ impl Cli {
                 commands::work::run(name, effective_env, effective_yolo).await
             }
             Commands::Manage => commands::manage::run(),
+            Commands::_Run {
+                run_id,
+                workflow_name,
+                workflow_path,
+                env,
+                project_root,
+                yolo,
+            } => {
+                commands::work::run_worker(
+                    run_id,
+                    workflow_name,
+                    workflow_path,
+                    env,
+                    project_root,
+                    yolo,
+                )
+                .await
+            }
             Commands::Make { command } => match command {
                 MakeCommands::Ticket => commands::make::ticket(),
                 MakeCommands::Worktree { branch } => commands::make::worktree(&branch),

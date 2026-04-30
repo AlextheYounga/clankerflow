@@ -9,6 +9,8 @@ use tokio::net::TcpStream;
 
 use crate::core::ipc::Message;
 use crate::core::opencode::Gateway;
+use crate::core::opencode::server::DEFAULT_BASE_URL;
+use crate::core::tmux;
 use crate::db::entities::workflow_run::RunStatus;
 
 use super::WorkflowArgs;
@@ -21,6 +23,8 @@ pub struct Context {
     pub run_id: i64,
     pub cancel: Arc<CancelState>,
     pub opencode: Gateway,
+    pub project_session_name: String,
+    pub project_root: std::path::PathBuf,
 }
 
 /// Send the `start_run` command to the Node runner over IPC.
@@ -133,7 +137,14 @@ pub async fn handle_runner_line(
         }
         "event" => {
             append_run_event(&ctx.db, ctx.run_id, &message.name, message.payload.clone()).await?;
-            persist_session_from_event(&ctx.db, ctx.run_id, &message).await?;
+            persist_session_from_event(
+                &ctx.db,
+                ctx.run_id,
+                &message,
+                &ctx.project_session_name,
+                &ctx.project_root,
+            )
+            .await?;
             update_run_status_for_event(&ctx.db, ctx.run_id, &message).await
         }
         _ => Ok((LoopControl::Continue, None)),
@@ -144,9 +155,18 @@ async fn persist_session_from_event(
     db: &DatabaseConnection,
     run_id: i64,
     message: &Message,
+    project_session_name: &str,
+    project_root: &std::path::Path,
 ) -> Result<()> {
     if let Some(session_id) = session_id_from_event(message) {
         create_workflow_session(db, run_id, session_id).await?;
+        tmux::create_opencode_window(
+            project_session_name,
+            run_id,
+            session_id,
+            project_root,
+            DEFAULT_BASE_URL,
+        )?;
     }
 
     Ok(())

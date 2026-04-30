@@ -113,10 +113,11 @@ mod tests {
 
         assert!(dir.path().join(".agents/settings.json").exists());
         assert!(dir.path().join(".agents/workflows/default.ts").exists());
-        assert!(dir
-            .path()
-            .join(".agents/.clankerflow/lib/index.ts")
-            .exists());
+        assert!(
+            dir.path()
+                .join(".agents/.clankerflow/lib/index.ts")
+                .exists()
+        );
         assert!(dir.path().join(".agents/.gitignore").exists());
     }
 
@@ -173,10 +174,11 @@ mod tests {
 
         copy_kit_into(dir.path(), false).unwrap();
 
-        assert!(!dir
-            .path()
-            .join(".agents/.clankerflow/lib/node_modules")
-            .exists());
+        assert!(
+            !dir.path()
+                .join(".agents/.clankerflow/lib/node_modules")
+                .exists()
+        );
     }
 
     #[test]

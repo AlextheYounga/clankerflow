@@ -7,3 +7,4 @@ pub mod project;
 pub mod runner;
 pub mod settings;
 pub mod tickets;
+pub mod tmux;

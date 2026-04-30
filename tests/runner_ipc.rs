@@ -9,6 +9,7 @@ use clankerflow::core::runner::ipc_loop::{Context, handle_runner_line};
 use clankerflow::core::runner::protocol::LoopControl;
 use clankerflow::core::runner::signal::CancelState;
 use clankerflow::core::runner::store::{create_run, upsert_workflow};
+use clankerflow::core::tmux;
 use clankerflow::db::connection::connect;
 use clankerflow::db::entities::event::{Column as EventColumn, Entity as Event};
 use clankerflow::db::entities::workflow_run::{RunStatus, WorkflowEnv};
@@ -112,5 +113,7 @@ async fn test_ipc_context(project: &TempDir) -> Context {
         run_id,
         cancel,
         opencode,
+        project_session_name: tmux::project_session_name("test_project"),
+        project_root: project.path().to_path_buf(),
     }
 }

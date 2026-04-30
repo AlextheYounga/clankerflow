@@ -94,6 +94,23 @@ pub async fn set_status(db: &DatabaseConnection, id: i64, status: RunStatus) -> 
     Ok(())
 }
 
+/// Update the persisted worker pid for a workflow run.
+///
+/// # Errors
+/// Returns an error if updating the run row fails.
+pub async fn set_pid(db: &DatabaseConnection, id: i64, pid: i64) -> Result<()> {
+    WorkflowRunActive {
+        id: ActiveValue::Unchanged(id),
+        pid: ActiveValue::Set(Some(pid)),
+        updated_at: ActiveValue::Set(chrono::Utc::now()),
+        ..Default::default()
+    }
+    .update(db)
+    .await?;
+
+    Ok(())
+}
+
 /// Append an event record for a workflow run.
 ///
 /// # Errors
@@ -127,6 +144,19 @@ pub async fn create_workflow_session(
     run_id: i64,
     opencode_session_id: &str,
 ) -> Result<()> {
+    use crate::db::entities::workflow_session::{
+        Column as WorkflowSessionColumn, Entity as WorkflowSession,
+    };
+
+    let existing = WorkflowSession::find()
+        .filter(WorkflowSessionColumn::WorkflowRunId.eq(run_id))
+        .filter(WorkflowSessionColumn::OpencodeSessionId.eq(opencode_session_id))
+        .one(db)
+        .await?;
+    if existing.is_some() {
+        return Ok(());
+    }
+
     let now = chrono::Utc::now();
 
     WorkflowSessionActive {

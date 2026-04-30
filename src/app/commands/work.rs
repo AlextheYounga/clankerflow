@@ -12,9 +12,6 @@ use crate::db::entities::workflow_run::RunStatus;
 pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let workflow_path = resolve_workflow(&project_root, &name)?;
-    if let Err(error) = manage::open() {
-        eprintln!("warning: failed to open OpenCode UI: {error}");
-    }
 
     let args = WorkflowArgs {
         project_root: &project_root,
@@ -24,11 +21,46 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
         yolo,
     };
 
-    let final_status = WorkflowEngine::run(&args).await?;
-    print_summary(&name, &final_status);
+    let launch = WorkflowEngine::launch_in_tmux(&args).await?;
+    println!(
+        "workflow '{name}' launched (run id: {}, tmux: {}:{})",
+        launch.run_id, launch.project_session_name, launch.run_window_name
+    );
+
+    if let Err(error) = manage::run() {
+        eprintln!("warning: failed to open clankerflow manager: {error}");
+    }
+
+    Ok(())
+}
+
+/// # Errors
+/// Returns an error if the project root or workflow path are invalid, or if the
+/// workflow worker fails while running.
+pub async fn run_worker(
+    run_id: i64,
+    workflow_name: String,
+    workflow_path: String,
+    env: RuntimeEnv,
+    project_root: String,
+    yolo: bool,
+) -> anyhow::Result<()> {
+    let project_root = PathBuf::from(project_root);
+    let workflow_path = PathBuf::from(workflow_path);
+
+    let args = WorkflowArgs {
+        project_root: &project_root,
+        workflow_name: &workflow_name,
+        workflow_path: &workflow_path,
+        env,
+        yolo,
+    };
+
+    let final_status = WorkflowEngine::run_existing(&args, run_id).await?;
+    print_summary(&workflow_name, &final_status);
 
     if matches!(final_status, RunStatus::Failed) {
-        anyhow::bail!("workflow '{name}' failed");
+        anyhow::bail!("workflow '{workflow_name}' failed");
     }
 
     Ok(())
