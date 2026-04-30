@@ -1,11 +1,15 @@
 use glob::glob;
+use rust_embed::RustEmbed;
 use std::fs;
 use std::path::Path;
 
-use mdpack::{UnpackOptions, unpack_from_str};
-
-const KIT_BUNDLE: &str = include_str!("../kit.md");
 const OPENCODE_CONFIG: &str = include_str!("../../kit/opencode.json");
+
+#[derive(RustEmbed)]
+#[folder = "kit/"]
+#[exclude = ".clankerflow/lib/node_modules/*"]
+#[exclude = "opencode.json"]
+struct EmbeddedKit;
 
 /// Write every embedded kit file into `<project_root>/.agents/`.
 ///
@@ -19,16 +23,22 @@ pub fn copy_kit(project_root: &Path, is_reinit: bool) -> anyhow::Result<()> {
 fn copy_kit_into(project_root: &Path, is_reinit: bool) -> anyhow::Result<()> {
     let agents_dir = project_root.join(".agents");
     fs::create_dir_all(&agents_dir)?;
-    unpack_from_str(
-        KIT_BUNDLE,
-        Some(&agents_dir),
-        UnpackOptions { force: is_reinit },
-    )
-    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
 
-    let agents_opencode = agents_dir.join("opencode.json");
-    if agents_opencode.exists() {
-        fs::remove_file(agents_opencode)?;
+    for file_path in EmbeddedKit::iter() {
+        let Some(contents) = EmbeddedKit::get(file_path.as_ref()) else {
+            anyhow::bail!("missing embedded kit asset: {file_path}");
+        };
+
+        let target_path = agents_dir.join(file_path.as_ref());
+        if !is_reinit && target_path.exists() {
+            continue;
+        }
+
+        if let Some(parent) = target_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(target_path, contents.data.as_ref())?;
     }
 
     enable_gitignore(&agents_dir);
@@ -103,6 +113,10 @@ mod tests {
 
         assert!(dir.path().join(".agents/settings.json").exists());
         assert!(dir.path().join(".agents/workflows/default.ts").exists());
+        assert!(dir
+            .path()
+            .join(".agents/.clankerflow/lib/index.ts")
+            .exists());
         assert!(dir.path().join(".agents/.gitignore").exists());
     }
 
@@ -151,6 +165,29 @@ mod tests {
         copy_kit_into(dir.path(), false).unwrap();
 
         assert!(!dir.path().join(".agents/opencode.json").exists());
+    }
+
+    #[test]
+    fn copy_kit_excludes_node_modules_from_agents_dir() {
+        let dir = TempDir::new().unwrap();
+
+        copy_kit_into(dir.path(), false).unwrap();
+
+        assert!(!dir
+            .path()
+            .join(".agents/.clankerflow/lib/node_modules")
+            .exists());
+    }
+
+    #[test]
+    fn copy_kit_writes_expected_gitignore_entries() {
+        let dir = TempDir::new().unwrap();
+
+        copy_kit_into(dir.path(), false).unwrap();
+
+        let gitignore = fs::read_to_string(dir.path().join(".agents/.gitignore")).unwrap();
+        assert!(gitignore.contains(".clankerflow"));
+        assert!(gitignore.contains(".worktrees"));
     }
 
     #[test]

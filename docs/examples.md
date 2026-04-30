@@ -5,6 +5,12 @@ not every capability of the runtime. Some are intentionally absurd, because why 
 
 >NOTE: Most of these were AI-generated.
 
+Real workflows live in `.agents/workflows/*.ts` and typically import workflow types from `clankerflow`:
+
+```ts
+import type { WorkflowContext, WorkflowTools } from "clankerflow";
+```
+
 ## Planner -> Dev -> QA
 
 ```ts

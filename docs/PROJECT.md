@@ -3,7 +3,7 @@
 ## Purpose
 
 **Name:** `clankerflow`
-**Goal:** Build an AI workflow framework where workflows are authored in Javascript and orchestrated by a Rust CLI.
+**Goal:** Build an AI workflow framework where workflows are authored in TypeScript and orchestrated by a Rust CLI.
 
 ## Important Notes
 - There are no existing projects. You are free to create everything as if it were pre-launch. 
@@ -12,12 +12,12 @@
 
 - Rust-powered CLI and orchestrator.
 - Designed as a drop-in agent system for any codebase with hands-free development workflows.
-- Ability to create deterministic AI workflows using plain Javascript.
-- Typescript runtime that is compiled to Javascript `.agents/lib` folder, containing the runtime assets and helpers for creating deterministic workflows.
-- The `dist/` payload is embedded in the Rust binary and emitted during `clankerflow init` into `.agents/lib`.
+- Ability to create deterministic AI workflows using plain TypeScript.
+- Typescript workflow runtime is scaffolded under `.agents/.clankerflow/lib`, where workflows import `clankerflow` through the mirrored kit layout.
+- The `kit/` directory is embedded directly in the Rust binary and emitted during `clankerflow init` into `.agents/`.
 - Clap-powered CLI. Workflow monitoring is handled by the OpenCode web UI (`clankerflow manage` opens it in the browser).
-- Workflow JavaScript is executed by a managed Node runtime process started by Rust.
-- Rust and Node communicate over stdio using structured JSON messages (IPC).
+- Workflow TypeScript is executed by a managed Node runtime process started by Rust.
+- Rust and Node communicate over TCP using structured JSON messages (IPC).
 - Transport model is intentionally Tauri-like: TypeScript workflow APIs are thin wrappers that invoke Rust capabilities over IPC.
 - Rust owns process lifecycle (start/stop/cancel/timeouts) and state tracking.
 - Rust is the source of truth for persistent state (SQLite with SeaORM).
@@ -25,7 +25,7 @@
 - TypeScript owns helpers and workflow composition, but not Opencode API handling, this goes through Rust in order for more fine-grained control.
 - There is no built-in workflow resume concept. 
 - Rust communicates with Opencode API. Typescript just owns workflow running and workflow helpers, passing back data to Rust via IPC channel. 
-- Workflow examples are stored at `src/kit/workflows` and these should not be changed heavily, as this is the syntax we are aiming for. 
+- Workflow examples are stored at `kit/workflows` and these should not be changed heavily, as this is the syntax we are aiming for. 
 
 ### Container & Runtime
 - Container model is per-project (persistent), not per workflow run.
@@ -47,12 +47,12 @@
 - Do not execute workflows through shell strings; spawn Node directly from Rust process APIs.
 - Preferred distribution model: ship a bundled Node runtime with `clankerflow` releases.
 - No fallback: bundled Node is required for releases.
-- Dev override: `AGENTCTL_NODE_BIN` can point to a local Node binary.
+- Dev/test override hooks are controlled by the current Rust runner configuration.
 
 ## User Flow
 
 - User runs `clankerflow init` in a new or existing repository.
-- A `.agents` folder is created in the workspace. If `.agents` already exists, `init` exits with an error (no overwrite).
+- A `.agents` folder is created in the workspace. If `.agents` already exists, `init` prompts before refreshing the scaffold.
 - The `init` command also places a boilerplate `.opencode/opencode.json` for project-local OpenCode settings.
 - User runs `clankerflow work duos` to execute `.agents/workflows/duos.ts`. 
 - User runs `clankerflow manage` to open the OpenCode web UI for this project in the browser. The web UI shows running and previous sessions.
@@ -89,7 +89,7 @@ After `clankerflow init`, the framework scaffold is written into the repository 
 │   ├── docker                            Container runtime support
 │   │   ├── agent.docker-compose.yaml
 │   │   └── Dockerfile
-│   └── lib                   		      Compiled JS runtime helpers and orchestration
+│   └── lib                                  Hidden TypeScript runtime package and orchestration
 ├── .worktrees                            Git worktrees (gitignored)
 ├── context                               Prompts and context assets
 │   ├── prompts
@@ -138,7 +138,7 @@ Commands:
 ## Must Haves
 
 - Agent CLI for setting up and operating the clankerflow framework.
-- Workflows authored in Javascript with support for complex, multi-step agent orchestration.
+- Workflows authored in TypeScript with support for complex, multi-step agent orchestration.
 - Workflow runtime support for both host and container environments.
   - OpenCode dangerous mode uses `--yolo` with workflows running in containers.
   - This should be configurable via env choice (`host` vs `container`).

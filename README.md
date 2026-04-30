@@ -4,8 +4,8 @@
 
 # ClankerFlow
 
-`clankerflow` is a Rust CLI, drop-in OpenCode framework that allows you to run deterministic AI workflows in your repository using readable Typescript. 
-Get the full power of OpenCode with the full power of a programming language. Workflows can be easily containerized for yolo mode or run rawdog on your machine. 
+`clankerflow` is a Rust CLI, drop-in OpenCode framework that allows you to run deterministic AI workflows in your repository using readable TypeScript.
+Get the full power of OpenCode with the full power of a programming language. Workflows can be containerized for yolo mode or run directly on your machine.
 
 Workflows are authored in TypeScript and executed by a managed Node runtime, while Rust owns orchestration, state, and OpenCode lifecycle calls.
 
@@ -61,7 +61,13 @@ Then run a workflow:
 clankerflow work duos
 ```
 
-`clankerflow work` now also opens the OpenCode manage URL in your browser automatically.
+`clankerflow work` also opens the OpenCode manage URL in your browser automatically.
+
+Workflows stay user-editable in `.agents/workflows/*.ts` and import the runtime surface as a normal module:
+
+```ts
+import type { WorkflowMeta, WorkflowContext, WorkflowTools } from "clankerflow";
+```
 
 ## CLI commands
 
@@ -101,7 +107,7 @@ Each project gets its own persistent container named `agent-{codebase_id}`, deri
 - Ships with git, build-essential, gitleaks, and the OpenCode CLI pre-installed.
 - Stays alive between runs (`restart: unless-stopped`) so subsequent workflows start instantly.
 
-The Dockerfile and compose file are scaffolded into `.agents/.clankerflow/docker/` during `init` and can be customized per-project.
+The Dockerfile and compose file are scaffolded into `.agents/.clankerflow/docker/` during `init`. Since `.agents/.clankerflow/` is gitignored, treat these as local runtime overrides.
 
 Workflows can check their environment at runtime via `ctx.runtimeEnv` and `ctx.yolo`:
 
@@ -119,7 +125,9 @@ async function careful(ctx, { agent }) {
 ## Workflow runtime notes
 
 - Workflow files live at `.agents/workflows/*.ts`.
-- Runtime helpers are scaffolded under `.agents/.clankerflow/lib`.
+- Runtime helpers and package metadata are scaffolded under `.agents/.clankerflow/lib`.
+- `clankerflow init` runs `npm install` inside `.agents/.clankerflow/lib`.
+- `.agents/.clankerflow/` is gitignored and treated as local runtime state.
 - Rust and Node communicate over structured JSON IPC.
 - Run monitoring is done in the OpenCode web UI.
 
@@ -150,11 +158,13 @@ if (started.session_id) {
 
 ## Development
 
-Rebuild the embedded scaffold bundle after changing files in `kit/` or runtime workflow assets:
+The embedded scaffold now comes directly from `kit/`. Update files there when you want to change what `clankerflow init` writes into `.agents/`.
 
-```bash
-cargo bundle-kit
-```
+Key source-of-truth paths:
+
+- `kit/` mirrors the emitted `.agents/` scaffold.
+- `kit/.clankerflow/lib/` is the hidden runtime package installed during `init`.
+- `runtime/` still exists for runtime-focused development and tests, but `kit/` is what gets embedded into the binary.
 
 Run Rust tests:
 
@@ -165,6 +175,6 @@ cargo test
 Run runtime tests:
 
 ```bash
-cd runtime
+cd kit/.clankerflow/lib
 npm test
 ```
