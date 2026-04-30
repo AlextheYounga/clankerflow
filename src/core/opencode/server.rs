@@ -1,3 +1,4 @@
+use std::io::Error;
 use std::io::ErrorKind;
 use std::process::Stdio;
 use std::time::Duration;
@@ -61,7 +62,7 @@ fn spawn_server() -> Result<Child> {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(map_spawn_error)
+        .map_err(|error| map_spawn_error(&error))
 }
 
 fn serve_args() -> [String; 5] {
@@ -74,7 +75,7 @@ fn serve_args() -> [String; 5] {
     ]
 }
 
-fn map_spawn_error(error: std::io::Error) -> anyhow::Error {
+fn map_spawn_error(error: &Error) -> anyhow::Error {
     if error.kind() == ErrorKind::NotFound {
         anyhow!("`opencode` binary not found on PATH; install OpenCode CLI to run workflows")
     } else {
@@ -107,8 +108,8 @@ mod tests {
 
     #[test]
     fn map_spawn_error_reports_missing_binary_clearly() {
-        let missing = std::io::Error::from(ErrorKind::NotFound);
-        let error = map_spawn_error(missing);
+        let missing = Error::from(ErrorKind::NotFound);
+        let error = map_spawn_error(&missing);
 
         assert!(error.to_string().contains("binary not found"));
     }

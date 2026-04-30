@@ -1,3 +1,4 @@
+use std::env;
 use std::path::Path;
 use std::process::Command;
 
@@ -12,6 +13,13 @@ pub struct SessionWindow {
     pub session_name: String,
     pub window_name: String,
     pub active: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct WindowTarget<'a> {
+    pub session_name: &'a str,
+    pub run_id: i64,
+    pub work_dir: &'a Path,
 }
 
 #[must_use]
@@ -38,39 +46,35 @@ pub fn opencode_window_name(run_id: i64, session_id: &str) -> String {
 /// # Errors
 /// Returns an error when tmux fails to create the window.
 pub fn create_run_window(
-    session_name: &str,
-    run_id: i64,
     workflow_name: &str,
-    work_dir: &Path,
+    target: WindowTarget<'_>,
     command: &str,
 ) -> Result<String> {
-    let window_name = run_window_name(run_id, workflow_name);
-    create_window(session_name, &window_name, work_dir, command)?;
+    let window_name = run_window_name(target.run_id, workflow_name);
+    create_window(target.session_name, &window_name, target.work_dir, command)?;
     Ok(window_name)
 }
 
 /// # Errors
 /// Returns an error when tmux fails to create the window.
 pub fn create_opencode_window(
-    session_name: &str,
-    run_id: i64,
     opencode_session_id: &str,
-    work_dir: &Path,
+    target: WindowTarget<'_>,
     base_url: &str,
 ) -> Result<String> {
-    let window_name = opencode_window_name(run_id, opencode_session_id);
+    let window_name = opencode_window_name(target.run_id, opencode_session_id);
     let command = format!(
         "opencode attach {base_url} -s {}",
         shell_escape(opencode_session_id)
     );
-    create_window(session_name, &window_name, work_dir, &command)?;
+    create_window(target.session_name, &window_name, target.work_dir, &command)?;
     Ok(window_name)
 }
 
 /// # Errors
 /// Returns an error when tmux fails to attach or switch the client.
 pub fn attach_session(session_name: &str) -> Result<()> {
-    let command = if std::env::var("TMUX").is_ok() {
+    let command = if env::var("TMUX").is_ok() {
         "switch-client"
     } else {
         "attach-session"
@@ -92,7 +96,7 @@ pub fn attach_session(session_name: &str) -> Result<()> {
 /// Returns an error when tmux fails to attach or select the window.
 pub fn attach_window(session_name: &str, window_name: &str) -> Result<()> {
     let target = format!("{session_name}:{window_name}");
-    let status = if std::env::var("TMUX").is_ok() {
+    let status = if env::var("TMUX").is_ok() {
         Command::new("tmux")
             .args(["switch-client", "-t", session_name])
             .args([";", "select-window", "-t", &target])

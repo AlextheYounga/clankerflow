@@ -2,6 +2,7 @@ mod query;
 mod state;
 
 use std::io::{self, Stdout};
+use std::process::Command;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -16,6 +17,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
+use sea_orm::DatabaseConnection;
 
 use crate::app::commands::manage::query::{load_events, load_runs};
 use crate::app::commands::manage::state::{RunRow, State};
@@ -23,12 +25,20 @@ use crate::core::codebase_id;
 use crate::core::project::require_project_root;
 use crate::core::tmux;
 use crate::db::connection::connect;
+use tokio::runtime::Runtime;
+
+struct App<'a> {
+    db: &'a DatabaseConnection,
+    project_key: &'a str,
+    project_session_name: &'a str,
+    state: State,
+}
 
 /// # Errors
 /// Returns an error if the project is not initialized, terminal setup fails, or
 /// database/tmux reads fail while the TUI is running.
 pub fn run() -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new()?;
+    let runtime = Runtime::new()?;
     runtime.block_on(async_run())
 }
 
@@ -38,18 +48,16 @@ async fn async_run() -> Result<()> {
     let db = connect(&project_root).await?;
     let project_session_name = tmux::project_session_name(&project_key);
 
-    let mut app_state = State::default();
-    refresh(&db, &project_key, &mut app_state).await?;
+    let mut app = App {
+        db: &db,
+        project_key: &project_key,
+        project_session_name: &project_session_name,
+        state: State::default(),
+    };
+    refresh(&mut app).await?;
 
     let mut terminal = init_terminal()?;
-    let run_result = run_loop(
-        &mut terminal,
-        &db,
-        &project_key,
-        &project_session_name,
-        &mut app_state,
-    )
-    .await;
+    let run_result = run_loop(&mut terminal, &mut app).await;
     let restore_result = restore_terminal(&mut terminal);
 
     restore_result?;
@@ -58,16 +66,13 @@ async fn async_run() -> Result<()> {
 
 async fn run_loop(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
-    db: &sea_orm::DatabaseConnection,
-    project_key: &str,
-    project_session_name: &str,
-    state: &mut State,
+    app: &mut App<'_>,
 ) -> Result<()> {
     let refresh_interval = Duration::from_secs(2);
     let mut last_refresh = Instant::now();
 
     loop {
-        terminal.draw(|frame| render(frame, state))?;
+        terminal.draw(|frame| render(frame, &app.state))?;
 
         if event::poll(Duration::from_millis(200))?
             && let Event::Key(key_event) = event::read()?
@@ -75,21 +80,21 @@ async fn run_loop(
         {
             match key_event.code {
                 KeyCode::Char('q') | KeyCode::Esc => break,
-                KeyCode::Up | KeyCode::Char('k') => state.move_up(),
-                KeyCode::Down | KeyCode::Char('j') => state.move_down(),
-                KeyCode::Char('r') => refresh(db, project_key, state).await?,
-                KeyCode::Char('c') => cancel_selected(state)?,
+                KeyCode::Up | KeyCode::Char('k') => app.state.move_up(),
+                KeyCode::Down | KeyCode::Char('j') => app.state.move_down(),
+                KeyCode::Char('r') => refresh(app).await?,
+                KeyCode::Char('c') => cancel_selected(&mut app.state)?,
                 KeyCode::Enter | KeyCode::Char('a') => {
-                    attach_selected(project_session_name, state)?
+                    attach_selected(app.project_session_name, &mut app.state)?;
                 }
                 _ => {}
             }
 
-            load_selected_events(db, state).await?;
+            load_selected_events(app).await?;
         }
 
         if last_refresh.elapsed() >= refresh_interval {
-            refresh(db, project_key, state).await?;
+            refresh(app).await?;
             last_refresh = Instant::now();
         }
     }
@@ -97,31 +102,28 @@ async fn run_loop(
     Ok(())
 }
 
-async fn refresh(
-    db: &sea_orm::DatabaseConnection,
-    project_key: &str,
-    state: &mut State,
-) -> Result<()> {
-    let runs = load_runs(db, project_key).await?;
-    state.set_runs(runs);
-    load_selected_events(db, state).await?;
+async fn refresh(app: &mut App<'_>) -> Result<()> {
+    let runs = load_runs(app.db, app.project_key).await?;
+    app.state.set_runs(runs);
+    load_selected_events(app).await?;
 
-    if state.runs.is_empty() {
-        state.set_status("No clankerflow runs found yet", false);
+    if app.state.runs.is_empty() {
+        app.state.set_status("No clankerflow runs found yet", false);
     } else {
-        state.set_status(format!("Loaded {} runs", state.runs.len()), false);
+        app.state
+            .set_status(format!("Loaded {} runs", app.state.runs.len()), false);
     }
 
     Ok(())
 }
 
-async fn load_selected_events(db: &sea_orm::DatabaseConnection, state: &mut State) -> Result<()> {
-    let Some(run) = state.selected_run() else {
-        state.events.clear();
+async fn load_selected_events(app: &mut App<'_>) -> Result<()> {
+    let Some(run) = app.state.selected_run() else {
+        app.state.events.clear();
         return Ok(());
     };
 
-    state.events = load_events(db, run.run_id).await?;
+    app.state.events = load_events(app.db, run.run_id).await?;
     Ok(())
 }
 
@@ -182,7 +184,7 @@ fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
 }
 
 fn send_sigint(pid: i64) -> Result<()> {
-    let status = std::process::Command::new("kill")
+    let status = Command::new("kill")
         .args(["-INT", &pid.to_string()])
         .status()?;
 
@@ -451,7 +453,9 @@ mod tests {
             ..State::default()
         };
 
-        cancel_selected(&mut state).unwrap();
+        let result = cancel_selected(&mut state);
+
+        assert!(result.is_ok());
 
         assert!(state.status_is_error);
         assert_eq!(state.status_line, "Selected run is already finished");

@@ -37,33 +37,35 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
 /// # Errors
 /// Returns an error if the project root or workflow path are invalid, or if the
 /// workflow worker fails while running.
-pub async fn run_worker(
-    run_id: i64,
-    workflow_name: String,
-    workflow_path: String,
-    env: RuntimeEnv,
-    project_root: String,
-    yolo: bool,
-) -> anyhow::Result<()> {
-    let project_root = PathBuf::from(project_root);
-    let workflow_path = PathBuf::from(workflow_path);
+pub async fn run_worker(worker: WorkerArgs) -> anyhow::Result<()> {
+    let project_root = PathBuf::from(&worker.project_root);
+    let workflow_path = PathBuf::from(&worker.workflow_path);
 
     let args = WorkflowArgs {
         project_root: &project_root,
-        workflow_name: &workflow_name,
+        workflow_name: &worker.workflow_name,
         workflow_path: &workflow_path,
-        env,
-        yolo,
+        env: worker.env,
+        yolo: worker.yolo,
     };
 
-    let final_status = WorkflowEngine::run_existing(&args, run_id).await?;
-    print_summary(&workflow_name, &final_status);
+    let final_status = WorkflowEngine::run_existing(&args, worker.run_id).await?;
+    print_summary(&worker.workflow_name, &final_status);
 
     if matches!(final_status, RunStatus::Failed) {
-        anyhow::bail!("workflow '{workflow_name}' failed");
+        anyhow::bail!("workflow '{}' failed", worker.workflow_name);
     }
 
     Ok(())
+}
+
+pub struct WorkerArgs {
+    pub run_id: i64,
+    pub workflow_name: String,
+    pub workflow_path: String,
+    pub env: RuntimeEnv,
+    pub project_root: String,
+    pub yolo: bool,
 }
 
 fn print_summary(name: &str, status: &RunStatus) {

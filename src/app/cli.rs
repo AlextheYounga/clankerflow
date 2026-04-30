@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 use crate::app::commands;
+use crate::app::commands::work::WorkerArgs;
 use crate::app::types::{ContainmentCommands, MakeCommands, RuntimeEnv};
 
 #[derive(Debug, Parser)]
@@ -81,14 +82,14 @@ impl Cli {
                 project_root,
                 yolo,
             } => {
-                commands::work::run_worker(
+                commands::work::run_worker(WorkerArgs {
                     run_id,
                     workflow_name,
                     workflow_path,
                     env,
                     project_root,
                     yolo,
-                )
+                })
                 .await
             }
             Commands::Make { command } => match command {

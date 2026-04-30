@@ -1,3 +1,4 @@
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -24,7 +25,15 @@ pub struct Context {
     pub cancel: Arc<CancelState>,
     pub opencode: Gateway,
     pub project_session_name: String,
-    pub project_root: std::path::PathBuf,
+    pub project_root: PathBuf,
+}
+
+struct SessionWindowContext<'a> {
+    db: &'a DatabaseConnection,
+    run_id: i64,
+    message: &'a Message,
+    project_session_name: &'a str,
+    project_root: &'a Path,
 }
 
 /// Send the `start_run` command to the Node runner over IPC.
@@ -137,13 +146,13 @@ pub async fn handle_runner_line(
         }
         "event" => {
             append_run_event(&ctx.db, ctx.run_id, &message.name, message.payload.clone()).await?;
-            persist_session_from_event(
-                &ctx.db,
-                ctx.run_id,
-                &message,
-                &ctx.project_session_name,
-                &ctx.project_root,
-            )
+            persist_session_from_event(SessionWindowContext {
+                db: &ctx.db,
+                run_id: ctx.run_id,
+                message: &message,
+                project_session_name: &ctx.project_session_name,
+                project_root: &ctx.project_root,
+            })
             .await?;
             update_run_status_for_event(&ctx.db, ctx.run_id, &message).await
         }
@@ -151,20 +160,16 @@ pub async fn handle_runner_line(
     }
 }
 
-async fn persist_session_from_event(
-    db: &DatabaseConnection,
-    run_id: i64,
-    message: &Message,
-    project_session_name: &str,
-    project_root: &std::path::Path,
-) -> Result<()> {
-    if let Some(session_id) = session_id_from_event(message) {
-        create_workflow_session(db, run_id, session_id).await?;
+async fn persist_session_from_event(ctx: SessionWindowContext<'_>) -> Result<()> {
+    if let Some(session_id) = session_id_from_event(ctx.message) {
+        create_workflow_session(ctx.db, ctx.run_id, session_id).await?;
         tmux::create_opencode_window(
-            project_session_name,
-            run_id,
             session_id,
-            project_root,
+            tmux::WindowTarget {
+                session_name: ctx.project_session_name,
+                run_id: ctx.run_id,
+                work_dir: ctx.project_root,
+            },
             DEFAULT_BASE_URL,
         )?;
     }

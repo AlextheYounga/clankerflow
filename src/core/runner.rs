@@ -4,7 +4,9 @@ pub mod protocol;
 pub mod signal;
 pub mod store;
 
+use std::env::current_exe;
 use std::path::Path;
+use std::process;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
@@ -78,10 +80,12 @@ impl WorkflowEngine {
         let project_session_name = tmux::project_session_name(&codebase_id);
         let command = worker_command(args, run_id)?;
         let run_window_name = tmux::create_run_window(
-            &project_session_name,
-            run_id,
             args.workflow_name,
-            args.project_root,
+            tmux::WindowTarget {
+                session_name: &project_session_name,
+                run_id,
+                work_dir: args.project_root,
+            },
             &command,
         )?;
 
@@ -139,7 +143,7 @@ impl WorkflowEngine {
         let db = connect(args.project_root).await?;
 
         println!("workflow started (run id: {run_id})");
-        set_pid(&db, run_id, i64::from(std::process::id())).await?;
+        set_pid(&db, run_id, i64::from(process::id())).await?;
 
         let cancel = Arc::new(CancelState {
             cancelled: AtomicBool::new(false),
@@ -205,7 +209,7 @@ impl WorkflowEngine {
 }
 
 fn worker_command(args: &WorkflowArgs<'_>, run_id: i64) -> Result<String> {
-    let executable = std::env::current_exe()
+    let executable = current_exe()
         .map_err(|error| anyhow!("failed to resolve clankerflow executable: {error}"))?;
 
     let mut parts = vec![
