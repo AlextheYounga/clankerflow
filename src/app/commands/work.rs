@@ -29,7 +29,7 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
         output::path(&launch.run_window_name)
     );
 
-    if let Err(error) = manage::run() {
+    if let Err(error) = manage::run().await {
         eprintln!("{} failed to open clankerflow manager: {error}", output::warning("Warning"));
     }
 

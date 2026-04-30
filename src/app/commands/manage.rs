@@ -23,8 +23,6 @@ use crate::core::codebase_id;
 use crate::core::project::require_project_root;
 use crate::core::tmux;
 use crate::db::connection::connect;
-use tokio::runtime::Runtime;
-
 struct App<'a> {
     db: &'a DatabaseConnection,
     project_key: &'a str,
@@ -35,12 +33,7 @@ struct App<'a> {
 /// # Errors
 /// Returns an error if the project is not initialized, terminal setup fails, or
 /// database/tmux reads fail while the TUI is running.
-pub fn run() -> Result<()> {
-    let runtime = Runtime::new()?;
-    runtime.block_on(async_run())
-}
-
-async fn async_run() -> Result<()> {
+pub async fn run() -> Result<()> {
     let project_root = require_project_root()?;
     let project_key = codebase_id::derive(&project_root);
     let db = connect(&project_root).await?;

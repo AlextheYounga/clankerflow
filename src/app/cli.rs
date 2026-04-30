@@ -31,7 +31,7 @@ pub enum Commands {
     },
     /// Open the clankerflow session manager for this project
     Manage,
-    #[command(hide = true)]
+    #[command(hide = true, name = "_run")]
     _Run {
         #[arg(long)]
         run_id: i64,
@@ -68,7 +68,7 @@ impl Cli {
                 let (effective_env, effective_yolo) = resolve_work_flags(env, yolo, containment)?;
                 commands::work::run(name, effective_env, effective_yolo).await
             }
-            Commands::Manage => commands::manage::run(),
+            Commands::Manage => commands::manage::run().await,
             Commands::_Run { run_id, workflow_name, workflow_path, env, project_root, yolo } => {
                 commands::work::run_worker(WorkerArgs { run_id, workflow_name, workflow_path, env, project_root, yolo })
                     .await
