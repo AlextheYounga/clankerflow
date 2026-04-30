@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
+use colored::Colorize;
+
 use crate::app::commands::manage;
+use crate::app::output;
 use crate::app::types::RuntimeEnv;
 use crate::core::project::require_project_root;
 use crate::core::runner::{WorkflowArgs, WorkflowEngine};
@@ -18,12 +21,16 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
 
     let launch = WorkflowEngine::launch_in_tmux(&args).await?;
     println!(
-        "workflow '{name}' launched (run id: {}, tmux: {}:{})",
-        launch.run_id, launch.project_session_name, launch.run_window_name
+        "{} workflow '{}' (run id: {}, tmux: {}:{})",
+        output::success("Launched"),
+        output::path(&name),
+        launch.run_id,
+        output::path(&launch.project_session_name),
+        output::path(&launch.run_window_name)
     );
 
     if let Err(error) = manage::run() {
-        eprintln!("warning: failed to open clankerflow manager: {error}");
+        eprintln!("{} failed to open clankerflow manager: {error}", output::warning("Warning"));
     }
 
     Ok(())
@@ -65,13 +72,13 @@ pub struct WorkerArgs {
 
 fn print_summary(name: &str, status: &RunStatus) {
     let label = match status {
-        RunStatus::Completed => "completed",
-        RunStatus::Cancelled => "cancelled",
-        RunStatus::Failed => "failed",
-        RunStatus::Running => "running",
-        RunStatus::Pending => "pending",
+        RunStatus::Completed => output::success("completed"),
+        RunStatus::Cancelled => output::warning("cancelled"),
+        RunStatus::Failed => "failed".bright_red().bold().to_string(),
+        RunStatus::Running => output::action("running"),
+        RunStatus::Pending => output::warning("pending"),
     };
-    println!("workflow '{name}' {label}");
+    println!("workflow '{}' {label}", output::path(&name));
 }
 
 fn resolve_workflow(project_root: &Path, name: &str) -> anyhow::Result<PathBuf> {

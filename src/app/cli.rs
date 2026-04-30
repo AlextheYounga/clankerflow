@@ -29,7 +29,7 @@ pub enum Commands {
         #[arg(long, default_value_t = false, conflicts_with = "yolo")]
         containment: bool,
     },
-    /// Open the `OpenCode` web UI for this project
+    /// Open the clankerflow session manager for this project
     Manage,
     #[command(hide = true)]
     _Run {

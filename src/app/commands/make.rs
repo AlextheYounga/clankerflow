@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::app::output;
 use crate::core::project::require_project_root;
 use crate::core::tickets;
 
@@ -10,7 +11,7 @@ use crate::core::tickets;
 pub fn ticket() -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let filename = tickets::create_ticket(&project_root)?;
-    println!("Created {}", tickets::dir(&project_root).join(&filename).display());
+    println!("{} {}", output::success("Created"), output::path(&tickets::dir(&project_root).join(&filename).display()));
     Ok(())
 }
 
@@ -30,7 +31,7 @@ pub fn worktree(branch: &str) -> anyhow::Result<()> {
     fs::create_dir_all(parent)?;
     create_git_worktree(&project_root, branch, &worktree_path)?;
 
-    println!("Created worktree {}", worktree_path.display());
+    println!("{} worktree {}", output::success("Created"), output::path(&worktree_path.display()));
     Ok(())
 }
 

@@ -1,8 +1,9 @@
 use std::env;
 use std::io::{self, Write};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
+use crate::app::output;
 use crate::core::embeds::{copy_kit, place_opencode_config};
 use crate::db::connection::connect;
 
@@ -14,9 +15,11 @@ pub async fn run() -> anyhow::Result<()> {
     let is_reinit = agents_dir.exists();
 
     if is_reinit && !confirm_overwrite()? {
-        println!("Initialization cancelled.");
+        println!("{} setup cancelled.", output::warning("Warning"));
         return Ok(());
     }
+
+    println!("{} clankerflow in {}", output::action("Setting up"), output::path(&".agents/"));
 
     // Copy kit files into .agents/
     copy_kit(&project_root, is_reinit)?;
@@ -31,15 +34,34 @@ pub async fn run() -> anyhow::Result<()> {
     connect(&project_root).await?;
 
     if is_reinit {
-        println!("Kit refreshed successfully.");
+        println!("{} clankerflow scaffold refreshed.", output::success("Done"));
     } else {
-        println!("Initialized clankerflow in {}", project_root.display());
-        println!("  .agents/                 framework scaffold");
-        println!("  .agents/settings.json    project settings");
-        println!("  .opencode/opencode.json OpenCode project config");
-        println!("  .agents/workflows/       put your workflows here");
+        println!("{} clankerflow in {}", output::success("Initialized"), output::path(&project_root.display()));
         println!();
-        println!("Next: edit .agents/settings.json and .opencode/opencode.json, then run `clankerflow work <name>`.");
+        println!("{}", output::action(".agents Tour:"));
+        println!("- {} framework scaffold and local project automation", output::path(&".agents/"));
+        println!("- {} explain your project to clankerflow", output::path(&".agents/docs/PROJECT.md"));
+        println!("- {} project settings", output::path(&".agents/settings.json"));
+        println!("- {} sample workflows you can edit and run", output::path(&".agents/workflows/"));
+        println!("- {} local planning tickets and notes", output::path(&".agents/tickets/"));
+        println!("- {} shared context, roles, and templates", output::path(&".agents/context/"));
+        println!("- {} runtime internals and container support", output::path(&".agents/.clankerflow/"));
+        println!("- {} OpenCode project config", output::path(&".opencode/opencode.json"));
+        println!();
+        println!("{}", output::action("Next Steps:"));
+        println!("- Update {} to explain your project.", output::path(&".agents/docs/PROJECT.md"));
+        println!(
+            "- Review {} and {}.",
+            output::path(&".agents/settings.json"),
+            output::path(&".opencode/opencode.json")
+        );
+        println!(
+            "- Check out {}, {}, and {}.",
+            output::path(&".agents/workflows/"),
+            output::path(&".agents/tickets/"),
+            output::path(&".agents/context/")
+        );
+        println!("- Run {}.", output::command("clankerflow work <name>"));
     }
 
     Ok(())
@@ -49,6 +71,8 @@ fn npm_install(project_root: &Path) -> anyhow::Result<()> {
     let lib_dir = project_root.join(".agents/.clankerflow/lib");
     let status = Command::new("npm")
         .args(["install", "--prefix", lib_dir.to_str().unwrap_or(".")])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .map_err(|e| anyhow::anyhow!("failed to run npm install: {e}"))?;
 
@@ -60,7 +84,11 @@ fn npm_install(project_root: &Path) -> anyhow::Result<()> {
 }
 
 fn confirm_overwrite() -> anyhow::Result<bool> {
-    print!("Warning: .agents already exists and will be overwritten. Continue? [y/N]: ");
+    print!(
+        "{} {} already exists and will be overwritten. Continue? [y/N]: ",
+        output::warning("Warning:"),
+        output::path(&".agents")
+    );
     io::stdout().flush()?;
 
     let mut input = String::new();

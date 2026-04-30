@@ -1,3 +1,4 @@
+use crate::app::output;
 use crate::core::codebase_id;
 use crate::core::docker::Docker;
 use crate::core::project::require_project_root;
@@ -9,7 +10,7 @@ pub async fn up() -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let project_id = codebase_id::derive(&project_root);
     Docker::ensure_running(&project_root, &project_id).await?;
-    println!("container ready");
+    println!("{} container ready", output::success("Container"));
     Ok(())
 }
 
@@ -20,6 +21,6 @@ pub async fn down() -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let project_id = codebase_id::derive(&project_root);
     Docker::down(&project_root, &project_id).await?;
-    println!("container stopped");
+    println!("{} container stopped", output::warning("Container"));
     Ok(())
 }
