@@ -1,5 +1,6 @@
 export { createTicketContext, type TicketContext } from "./tickets/context.ts";
 import type { Ticket } from "./tickets/parser.ts";
+export type { Ticket } from "./tickets/parser.ts";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

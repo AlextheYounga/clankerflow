@@ -1,15 +1,9 @@
-import type {
-  WorkflowMeta,
-  WorkflowContext,
-  WorkflowTools,
-  Ticket,
-} from "clankerflow";
+import type { WorkflowMeta, WorkflowContext, WorkflowTools, Ticket } from "clankerflow";
 
 export const meta: WorkflowMeta = {
   id: "pair",
   name: "Pair Workflow",
-  description:
-    "Two-agent workflow: a planner (architect+PM) and a builder (dev+QA)",
+  description: "Two-agent workflow: a planner (architect+PM) and a builder (dev+QA)",
   runtime: "host",
 };
 
@@ -33,9 +27,7 @@ async function runBuilder(tools: WorkflowTools, ticket: Ticket) {
     prompt,
   });
   if (!result.ok)
-    throw new Error(
-      `Builder agent failed on ticket ${ticket.ticketId}: ${result.error}`
-    );
+    throw new Error(`Builder agent failed on ticket ${ticket.ticketId}: ${result.error}`);
 }
 
 async function buildTicket(tools: WorkflowTools, initial: Ticket) {
@@ -49,20 +41,17 @@ async function buildTicket(tools: WorkflowTools, initial: Ticket) {
     await runBuilder(tools, ticket);
 
     const refreshed = await tools.tickets.get({ id: ticket.ticketId });
-    if (!refreshed.ticket)
-      throw new Error(`Refresh ticket ${ticket.ticketId} failed`);
+    if (!refreshed.ticket) throw new Error(`Refresh ticket ${ticket.ticketId} failed`);
     ticket = refreshed.ticket;
 
     if (ticket.status === "CLOSED") {
-      tools.log.info(
-        `Ticket ${ticket.ticketId} closed after ${cycle} cycle(s)`
-      );
+      tools.log.info(`Ticket ${ticket.ticketId} closed after ${cycle} cycle(s)`);
       return { ticketId: ticket.ticketId, cycles: cycle, ok: true };
     }
 
     if (ticket.status !== "QA_CHANGES_REQUESTED") {
       tools.log.warn(
-        `Ticket ${ticket.ticketId} has unexpected status '${ticket.status}' — stopping`
+        `Ticket ${ticket.ticketId} has unexpected status '${ticket.status}' — stopping`,
       );
       return {
         ticketId: ticket.ticketId,
@@ -73,12 +62,12 @@ async function buildTicket(tools: WorkflowTools, initial: Ticket) {
     }
 
     tools.log.info(
-      `Ticket ${ticket.ticketId} needs changes (cycle ${cycle}/${MAX_REVIEW_CYCLES})`
+      `Ticket ${ticket.ticketId} needs changes (cycle ${cycle}/${MAX_REVIEW_CYCLES})`,
     );
   }
 
   tools.log.warn(
-    `Ticket ${ticket.ticketId} unresolved after ${MAX_REVIEW_CYCLES} cycle(s)`
+    `Ticket ${ticket.ticketId} unresolved after ${MAX_REVIEW_CYCLES} cycle(s)`,
   );
   return {
     ticketId: ticket.ticketId,
@@ -90,15 +79,14 @@ async function buildTicket(tools: WorkflowTools, initial: Ticket) {
 
 export default async function duosWorkflow(
   context: WorkflowContext,
-  tools: WorkflowTools
+  tools: WorkflowTools,
 ) {
   // Shortcut: if a ticket was passed directly, skip planning
   if (context.ticket) {
     tools.log.info(
-      `Ticket provided — skipping planner, building ticket ${context.ticket.ticketId}`
+      `Ticket provided — skipping planner, building ticket ${context.ticket.ticketId}`,
     );
-    const branchName =
-      context.ticket.branch ?? `ticket-${context.ticket.ticketId}`;
+    const branchName = context.ticket.branch ?? `ticket-${context.ticket.ticketId}`;
     await tools.git.checkoutBranch(branchName, "master");
     const result = await buildTicket(tools, context.ticket);
     return { ok: true, results: [result] };

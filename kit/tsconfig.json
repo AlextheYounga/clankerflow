@@ -10,8 +10,7 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "clankerflow": ["./.clankerflow/lib/types/clankerflow.d.ts"],
-      "clankerflow/helpers": ["./.clankerflow/lib/src/helpers.ts"]
+      "clankerflow": ["./.clankerflow/lib/index.ts"]
     }
   },
   "include": ["workflows/**/*.ts"]

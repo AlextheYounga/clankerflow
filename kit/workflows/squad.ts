@@ -1,15 +1,9 @@
-import type {
-  WorkflowMeta,
-  WorkflowContext,
-  WorkflowTools,
-  Ticket,
-} from "clankerflow";
+import type { WorkflowMeta, WorkflowContext, WorkflowTools, Ticket } from "clankerflow";
 
 export const meta: WorkflowMeta = {
   id: "dev-team",
   name: "Dev Team Workflow",
-  description:
-    "Architect plans, PM creates tickets, dev+QA iterate to completion",
+  description: "Architect plans, PM creates tickets, dev+QA iterate to completion",
   runtime: "host",
 };
 
@@ -33,9 +27,7 @@ async function runProjectManager(tools: WorkflowTools, outlineContent: string) {
   const rolePrompt = await tools.fs.read(".agents/context/roles/pm.md");
   const result = await tools.agent.run({
     title: "PM: Create tickets",
-    prompt: [rolePrompt, "", "Architecture Outline:", outlineContent].join(
-      "\n"
-    ),
+    prompt: [rolePrompt, "", "Architecture Outline:", outlineContent].join("\n"),
   });
   if (!result.ok) throw new Error(`PM agent failed: ${result.error}`);
 }
@@ -48,16 +40,14 @@ async function runDev(tools: WorkflowTools, ticket: Ticket) {
     prompt,
   });
   if (!result.ok)
-    throw new Error(
-      `Dev agent failed on ticket ${ticket.ticketId}: ${result.error}`
-    );
+    throw new Error(`Dev agent failed on ticket ${ticket.ticketId}: ${result.error}`);
   return result;
 }
 
 async function runQA(
   tools: WorkflowTools,
   ticket: Ticket,
-  devOutput: string | undefined
+  devOutput: string | undefined,
 ) {
   const rolePrompt = await tools.fs.read(".agents/context/roles/qa.md");
   const prompt = renderRolePrompt(rolePrompt, ticket);
@@ -66,9 +56,7 @@ async function runQA(
     prompt: [prompt, "", devOutput ?? "(no output provided)"].join("\n"),
   });
   if (!result.ok)
-    throw new Error(
-      `QA agent failed on ticket ${ticket.ticketId}: ${result.error}`
-    );
+    throw new Error(`QA agent failed on ticket ${ticket.ticketId}: ${result.error}`);
 }
 
 async function processDevQaCycle(tools: WorkflowTools, ticket: Ticket) {
@@ -76,15 +64,20 @@ async function processDevQaCycle(tools: WorkflowTools, ticket: Ticket) {
     id: ticket.ticketId,
     status: "IN_PROGRESS",
   });
+
   const devResult = await runDev(tools, ticket);
+  if (typeof devResult.output !== "string") {
+    throw new Error(`Dev agent failed on ticket ${ticket.ticketId}: ${devResult.output}`);
+  }
+
   await tools.tickets.updateStatus({
     id: ticket.ticketId,
     status: "QA_REVIEW",
   });
+
   await runQA(tools, ticket, devResult.output);
   const refreshed = await tools.tickets.get({ id: ticket.ticketId });
-  if (!refreshed.ticket)
-    throw new Error(`Refresh ticket ${ticket.ticketId} failed`);
+  if (!refreshed.ticket) throw new Error(`Refresh ticket ${ticket.ticketId} failed`);
   return refreshed.ticket;
 }
 
@@ -93,15 +86,13 @@ async function passTicketToDevTeam(tools: WorkflowTools, ticket: Ticket) {
     ticket = await processDevQaCycle(tools, ticket);
 
     if (ticket.status === "CLOSED") {
-      tools.log.info(
-        `Ticket ${ticket.ticketId} closed after ${cycle} cycle(s)`
-      );
+      tools.log.info(`Ticket ${ticket.ticketId} closed after ${cycle} cycle(s)`);
       return { ticketId: ticket.ticketId, cycles: cycle, ok: true };
     }
 
     if (ticket.status !== "QA_CHANGES_REQUESTED") {
       tools.log.warn(
-        `Ticket ${ticket.ticketId} has unexpected status '${ticket.status}' after QA — stopping`
+        `Ticket ${ticket.ticketId} has unexpected status '${ticket.status}' after QA — stopping`,
       );
       return {
         ticketId: ticket.ticketId,
@@ -112,7 +103,7 @@ async function passTicketToDevTeam(tools: WorkflowTools, ticket: Ticket) {
     }
 
     tools.log.info(
-      `Ticket ${ticket.ticketId} needs changes (cycle ${cycle}/${MAX_REVIEW_CYCLES})`
+      `Ticket ${ticket.ticketId} needs changes (cycle ${cycle}/${MAX_REVIEW_CYCLES})`,
     );
   }
 
@@ -132,7 +123,7 @@ async function passTicketToDevTeam(tools: WorkflowTools, ticket: Ticket) {
 
 export default async function squadWorkflow(
   _context: WorkflowContext,
-  tools: WorkflowTools
+  tools: WorkflowTools,
 ) {
   // Phase 1: Architect produces outline.md
   tools.log.info("Phase 1: Architect");
@@ -160,9 +151,7 @@ export default async function squadWorkflow(
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.filter((r) => !r.ok).length;
-  tools.log.info(
-    `Done. ${passed} ticket(s) closed, ${failed} stuck or unresolved.`
-  );
+  tools.log.info(`Done. ${passed} ticket(s) closed, ${failed} stuck or unresolved.`);
 
   return { ok: true, results };
 }

@@ -11,6 +11,7 @@ import type { LogContext } from "./tools/log.ts";
 export interface WorkflowMeta {
   id: string;
   name: string;
+  description?: string;
   runtime: "host" | "container";
 }
 

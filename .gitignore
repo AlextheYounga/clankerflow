@@ -1,8 +1,5 @@
 # App
 __trash__
-kit/.clankerflow/lib
-kit/workflows
-kit/workflows/*
 .agents
 
 # Logs
