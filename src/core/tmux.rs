@@ -29,27 +29,17 @@ pub fn project_session_name(project_key: &str) -> String {
 
 #[must_use]
 pub fn run_window_name(run_id: i64, workflow_name: &str) -> String {
-    format!(
-        "{RUN_WINDOW_PREFIX}{run_id}__{}",
-        sanitize_token(workflow_name)
-    )
+    format!("{RUN_WINDOW_PREFIX}{run_id}__{}", sanitize_token(workflow_name))
 }
 
 #[must_use]
 pub fn opencode_window_name(run_id: i64, session_id: &str) -> String {
-    format!(
-        "{SESSION_WINDOW_PREFIX}{run_id}__{}",
-        sanitize_token(session_id)
-    )
+    format!("{SESSION_WINDOW_PREFIX}{run_id}__{}", sanitize_token(session_id))
 }
 
 /// # Errors
 /// Returns an error when tmux fails to create the window.
-pub fn create_run_window(
-    workflow_name: &str,
-    target: WindowTarget<'_>,
-    command: &str,
-) -> Result<String> {
+pub fn create_run_window(workflow_name: &str, target: WindowTarget<'_>, command: &str) -> Result<String> {
     let window_name = run_window_name(target.run_id, workflow_name);
     create_window(target.session_name, &window_name, target.work_dir, command)?;
     Ok(window_name)
@@ -57,16 +47,9 @@ pub fn create_run_window(
 
 /// # Errors
 /// Returns an error when tmux fails to create the window.
-pub fn create_opencode_window(
-    opencode_session_id: &str,
-    target: WindowTarget<'_>,
-    base_url: &str,
-) -> Result<String> {
+pub fn create_opencode_window(opencode_session_id: &str, target: WindowTarget<'_>, base_url: &str) -> Result<String> {
     let window_name = opencode_window_name(target.run_id, opencode_session_id);
-    let command = format!(
-        "opencode attach {base_url} -s {}",
-        shell_escape(opencode_session_id)
-    );
+    let command = format!("opencode attach {base_url} -s {}", shell_escape(opencode_session_id));
     create_window(target.session_name, &window_name, target.work_dir, &command)?;
     Ok(window_name)
 }
@@ -74,11 +57,7 @@ pub fn create_opencode_window(
 /// # Errors
 /// Returns an error when tmux fails to attach or switch the client.
 pub fn attach_session(session_name: &str) -> Result<()> {
-    let command = if env::var("TMUX").is_ok() {
-        "switch-client"
-    } else {
-        "attach-session"
-    };
+    let command = if env::var("TMUX").is_ok() { "switch-client" } else { "attach-session" };
 
     let status = Command::new("tmux")
         .args([command, "-t", session_name])
@@ -135,13 +114,11 @@ pub fn list_project_windows(project_key: &str) -> Result<Vec<SessionWindow>> {
         return Err(anyhow!("tmux failed to list windows for {session_name}"));
     }
 
-    let output =
-        String::from_utf8(output.stdout).context("tmux window output was not valid UTF-8")?;
+    let output = String::from_utf8(output.stdout).context("tmux window output was not valid UTF-8")?;
     let mut windows = Vec::new();
     for line in output.lines().filter(|line| !line.trim().is_empty()) {
-        let (window_name, active) = line
-            .split_once('\x1f')
-            .ok_or_else(|| anyhow!("failed to parse tmux window line: {line}"))?;
+        let (window_name, active) =
+            line.split_once('\x1f').ok_or_else(|| anyhow!("failed to parse tmux window line: {line}"))?;
         windows.push(SessionWindow {
             session_name: session_name.clone(),
             window_name: window_name.to_string(),
@@ -152,42 +129,21 @@ pub fn list_project_windows(project_key: &str) -> Result<Vec<SessionWindow>> {
     Ok(windows)
 }
 
-fn create_window(
-    session_name: &str,
-    window_name: &str,
-    work_dir: &Path,
-    command: &str,
-) -> Result<()> {
+fn create_window(session_name: &str, window_name: &str, work_dir: &Path, command: &str) -> Result<()> {
     if window_exists(session_name, window_name)? {
         return Ok(());
     }
 
     let status = if session_exists(session_name)? {
         Command::new("tmux")
-            .args([
-                "new-window",
-                "-d",
-                "-t",
-                session_name,
-                "-n",
-                window_name,
-                "-c",
-            ])
+            .args(["new-window", "-d", "-t", session_name, "-n", window_name, "-c"])
             .arg(work_dir)
             .arg(command)
             .status()
             .with_context(|| format!("failed to create tmux window {window_name}"))?
     } else {
         Command::new("tmux")
-            .args([
-                "new-session",
-                "-d",
-                "-s",
-                session_name,
-                "-n",
-                window_name,
-                "-c",
-            ])
+            .args(["new-session", "-d", "-s", session_name, "-n", window_name, "-c"])
             .arg(work_dir)
             .arg(command)
             .status()
@@ -195,9 +151,7 @@ fn create_window(
     };
 
     if !status.success() {
-        return Err(anyhow!(
-            "tmux failed to create window {window_name} in {session_name}"
-        ));
+        return Err(anyhow!("tmux failed to create window {window_name} in {session_name}"));
     }
 
     set_remain_on_exit(session_name, window_name)?;
@@ -224,8 +178,7 @@ fn window_exists(session_name: &str, window_name: &str) -> Result<bool> {
         return Ok(false);
     }
 
-    let output =
-        String::from_utf8(output.stdout).context("tmux window output was not valid UTF-8")?;
+    let output = String::from_utf8(output.stdout).context("tmux window output was not valid UTF-8")?;
     Ok(output.lines().any(|line| line.trim() == window_name))
 }
 
@@ -252,11 +205,7 @@ fn sanitize_token(value: &str) -> String {
         })
         .collect::<String>();
 
-    if sanitized.is_empty() {
-        "unknown".to_string()
-    } else {
-        sanitized
-    }
+    if sanitized.is_empty() { "unknown".to_string() } else { sanitized }
 }
 
 fn shell_escape(value: &str) -> String {
@@ -270,10 +219,7 @@ mod tests {
 
     #[test]
     fn project_session_name_uses_prefix() {
-        assert_eq!(
-            project_session_name("abc123"),
-            "clankerflow__abc123".to_string()
-        );
+        assert_eq!(project_session_name("abc123"), "clankerflow__abc123".to_string());
     }
 
     #[test]
@@ -283,10 +229,7 @@ mod tests {
 
     #[test]
     fn opencode_window_name_includes_session_id() {
-        assert_eq!(
-            opencode_window_name(42, "sess_abc"),
-            "opencode__42__sess_abc".to_string()
-        );
+        assert_eq!(opencode_window_name(42, "sess_abc"), "opencode__42__sess_abc".to_string());
     }
 
     #[test]

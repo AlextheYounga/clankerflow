@@ -77,10 +77,7 @@ fn next_ticket_number(tickets_dir: &Path) -> anyhow::Result<u32> {
 
 #[must_use]
 pub fn parse_ticket_number(filename: &str) -> Option<u32> {
-    filename
-        .strip_prefix("T-")
-        .and_then(|s| s.strip_suffix(".md"))
-        .and_then(|n| n.parse().ok())
+    filename.strip_prefix("T-").and_then(|s| s.strip_suffix(".md")).and_then(|n| n.parse().ok())
 }
 
 fn render_template(ticket_id: &str, title: Option<&str>, branch: Option<&str>) -> String {

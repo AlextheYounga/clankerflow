@@ -86,10 +86,7 @@ pub async fn drive(
             cancel_sent = true;
         }
 
-        let Some(line) = lines
-            .next_line()
-            .await
-            .map_err(|error| anyhow!("error reading from Node runner: {error}"))?
+        let Some(line) = lines.next_line().await.map_err(|error| anyhow!("error reading from Node runner: {error}"))?
         else {
             break;
         };
@@ -124,13 +121,7 @@ pub async fn handle_runner_line(
     let message: Message = match serde_json::from_str(trimmed_line) {
         Ok(message) => message,
         Err(error) => {
-            append_run_event(
-                &ctx.db,
-                ctx.run_id,
-                "ipc_parse_error",
-                json!({ "error": error.to_string() }),
-            )
-            .await?;
+            append_run_event(&ctx.db, ctx.run_id, "ipc_parse_error", json!({ "error": error.to_string() })).await?;
             return Ok((LoopControl::Continue, None));
         }
     };
@@ -201,16 +192,8 @@ async fn update_run_status_for_event(
             Ok((LoopControl::Stop, Some(status)))
         }
         "run_failed" => {
-            let error_code = message
-                .payload
-                .get("error_code")
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
-            let msg = message
-                .payload
-                .get("message")
-                .and_then(|v| v.as_str())
-                .unwrap_or("(no message)");
+            let error_code = message.payload.get("error_code").and_then(|v| v.as_str()).unwrap_or("unknown");
+            let msg = message.payload.get("message").and_then(|v| v.as_str()).unwrap_or("(no message)");
             eprintln!("workflow run {run_id} failed: [{error_code}] {msg}");
             set_status(db, run_id, RunStatus::Failed).await?;
             Ok((LoopControl::Stop, Some(RunStatus::Failed)))
@@ -220,11 +203,7 @@ async fn update_run_status_for_event(
 }
 
 fn run_finished_status(message: &Message) -> RunStatus {
-    match message
-        .payload
-        .get("status")
-        .and_then(|value| value.as_str())
-    {
+    match message.payload.get("status").and_then(|value| value.as_str()) {
         Some("CANCELLED") => RunStatus::Cancelled,
         _ => RunStatus::Completed,
     }
@@ -236,11 +215,7 @@ mod tests {
 
     #[test]
     fn session_id_from_event_reads_agent_session_started_payload() {
-        let message = Message::command(
-            "evt_1",
-            "agent_session_started",
-            json!({ "session_id": "sess_abc" }),
-        );
+        let message = Message::command("evt_1", "agent_session_started", json!({ "session_id": "sess_abc" }));
 
         let session_id = session_id_from_event(&message);
 
@@ -260,19 +235,13 @@ mod tests {
     fn run_finished_status_returns_cancelled_for_cancelled_payload() {
         let message = Message::command("evt_1", "run_finished", json!({ "status": "CANCELLED" }));
 
-        assert!(matches!(
-            run_finished_status(&message),
-            RunStatus::Cancelled
-        ));
+        assert!(matches!(run_finished_status(&message), RunStatus::Cancelled));
     }
 
     #[test]
     fn run_finished_status_defaults_to_completed() {
         let message = Message::command("evt_1", "run_finished", json!({}));
 
-        assert!(matches!(
-            run_finished_status(&message),
-            RunStatus::Completed
-        ));
+        assert!(matches!(run_finished_status(&message), RunStatus::Completed));
     }
 }

@@ -13,13 +13,8 @@ pub async fn run(name: String, env: RuntimeEnv, yolo: bool) -> anyhow::Result<()
     let project_root = require_project_root()?;
     let workflow_path = resolve_workflow(&project_root, &name)?;
 
-    let args = WorkflowArgs {
-        project_root: &project_root,
-        workflow_name: &name,
-        workflow_path: &workflow_path,
-        env,
-        yolo,
-    };
+    let args =
+        WorkflowArgs { project_root: &project_root, workflow_name: &name, workflow_path: &workflow_path, env, yolo };
 
     let launch = WorkflowEngine::launch_in_tmux(&args).await?;
     println!(
@@ -88,10 +83,7 @@ fn resolve_workflow(project_root: &Path, name: &str) -> anyhow::Result<PathBuf> 
         return Ok(candidate);
     }
 
-    anyhow::bail!(
-        "workflow '{name}' not found under {}",
-        workflows_dir.display()
-    )
+    anyhow::bail!("workflow '{name}' not found under {}", workflows_dir.display())
 }
 
 fn validate_workflow_name(name: &str) -> anyhow::Result<()> {
@@ -121,9 +113,7 @@ mod tests {
     }
 
     fn write_workflow(project_root: &Path, name: &str) {
-        let path = project_root
-            .join(".agents/workflows")
-            .join(format!("{name}.ts"));
+        let path = project_root.join(".agents/workflows").join(format!("{name}.ts"));
         fs::write(path, "export default async () => {};").unwrap();
     }
 

@@ -10,10 +10,7 @@ use crate::core::tickets;
 pub fn ticket() -> anyhow::Result<()> {
     let project_root = require_project_root()?;
     let filename = tickets::create_ticket(&project_root)?;
-    println!(
-        "Created {}",
-        tickets::dir(&project_root).join(&filename).display()
-    );
+    println!("Created {}", tickets::dir(&project_root).join(&filename).display());
     Ok(())
 }
 
@@ -29,9 +26,7 @@ pub fn worktree(branch: &str) -> anyhow::Result<()> {
         anyhow::bail!("Worktree path already exists: {}", worktree_path.display());
     }
 
-    let parent = worktree_path
-        .parent()
-        .ok_or_else(|| anyhow::anyhow!("worktree path has no parent directory"))?;
+    let parent = worktree_path.parent().ok_or_else(|| anyhow::anyhow!("worktree path has no parent directory"))?;
     fs::create_dir_all(parent)?;
     create_git_worktree(&project_root, branch, &worktree_path)?;
 
@@ -53,19 +48,9 @@ fn validate_branch_name(branch: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn create_git_worktree(
-    project_root: &Path,
-    branch: &str,
-    worktree_path: &Path,
-) -> anyhow::Result<()> {
+fn create_git_worktree(project_root: &Path, branch: &str, worktree_path: &Path) -> anyhow::Result<()> {
     let output = Command::new("git")
-        .args([
-            "worktree",
-            "add",
-            "-b",
-            branch,
-            &worktree_path.to_string_lossy(),
-        ])
+        .args(["worktree", "add", "-b", branch, &worktree_path.to_string_lossy()])
         .current_dir(project_root)
         .output()?;
 
@@ -115,9 +100,6 @@ mod tests {
 
         let path = worktree_path(&root, "feat/new-feature");
 
-        assert_eq!(
-            path,
-            PathBuf::from("/tmp/project/.agents/.worktrees/feat/new-feature")
-        );
+        assert_eq!(path, PathBuf::from("/tmp/project/.agents/.worktrees/feat/new-feature"));
     }
 }

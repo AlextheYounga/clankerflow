@@ -14,10 +14,7 @@ pub enum LoopControl {
 ///
 /// # Errors
 /// Returns an error if serialization fails or if writing to the IPC stream fails.
-pub async fn write_message(
-    ipc_write: &mut (impl AsyncWrite + Unpin),
-    message: &Message,
-) -> IoResult<()> {
+pub async fn write_message(ipc_write: &mut (impl AsyncWrite + Unpin), message: &Message) -> IoResult<()> {
     let line = serde_json::to_string(message).map_err(|error| IoError::other(error.to_string()))?;
     ipc_write.write_all(line.as_bytes()).await?;
     ipc_write.write_all(b"\n").await?;
@@ -36,11 +33,7 @@ pub async fn send_cancel(ipc_write: &mut (impl AsyncWrite + Unpin), run_id: i64)
 }
 
 pub async fn send_shutdown(ipc_write: &mut (impl AsyncWrite + Unpin)) {
-    let message = Message::command(
-        "cmd_shutdown",
-        "shutdown",
-        serde_json::json!({ "reason": "run_complete" }),
-    );
+    let message = Message::command("cmd_shutdown", "shutdown", serde_json::json!({ "reason": "run_complete" }));
     // Shutdown is a courtesy signal so Node can drain in-flight work before
     // the parent enforces the grace-period kill.
     let _ = write_message(ipc_write, &message).await;

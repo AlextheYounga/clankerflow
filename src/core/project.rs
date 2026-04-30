@@ -6,9 +6,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AgentKataError {
-    #[error(
-        "clankerflow is not initialized in {0} or any parent directory (run `clankerflow init`)"
-    )]
+    #[error("clankerflow is not initialized in {0} or any parent directory (run `clankerflow init`)")]
     ProjectNotInitialized(PathBuf),
 }
 
@@ -32,8 +30,7 @@ pub fn get_project_root() -> Option<PathBuf> {
 }
 
 fn require_project_root_from(start: &Path) -> Result<PathBuf> {
-    walk_for_project_root(start)
-        .ok_or_else(|| AgentKataError::ProjectNotInitialized(start.to_path_buf()))
+    walk_for_project_root(start).ok_or_else(|| AgentKataError::ProjectNotInitialized(start.to_path_buf()))
 }
 
 /// # Errors

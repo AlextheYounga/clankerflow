@@ -8,10 +8,7 @@ use crate::db::entities::{event, workflow, workflow_run, workflow_session};
 /// # Errors
 /// Returns an error if database reads or tmux inspection fail.
 pub async fn load_runs(db: &DatabaseConnection, project_key: &str) -> Result<Vec<RunRow>> {
-    let runs = workflow_run::Entity::find()
-        .order_by_desc(workflow_run::Column::CreatedAt)
-        .all(db)
-        .await?;
+    let runs = workflow_run::Entity::find().order_by_desc(workflow_run::Column::CreatedAt).all(db).await?;
     let windows = tmux::list_project_windows(project_key)?;
 
     let mut rows = Vec::with_capacity(runs.len());
@@ -64,9 +61,7 @@ async fn load_workflow_name(db: &DatabaseConnection, workflow_id: Option<i64>) -
     };
 
     let workflow = workflow::Entity::find_by_id(workflow_id).one(db).await?;
-    workflow
-        .map(|record| record.name)
-        .ok_or_else(|| anyhow!("missing workflow record for id {workflow_id}"))
+    workflow.map(|record| record.name).ok_or_else(|| anyhow!("missing workflow record for id {workflow_id}"))
 }
 
 async fn load_session_ids(db: &DatabaseConnection, run_id: i64) -> Result<Vec<String>> {
@@ -76,10 +71,7 @@ async fn load_session_ids(db: &DatabaseConnection, run_id: i64) -> Result<Vec<St
         .all(db)
         .await?;
 
-    Ok(sessions
-        .into_iter()
-        .map(|record| record.opencode_session_id)
-        .collect())
+    Ok(sessions.into_iter().map(|record| record.opencode_session_id).collect())
 }
 
 fn windows_for_run(windows: &[tmux::SessionWindow], run_id: i64) -> Vec<String> {
@@ -99,10 +91,7 @@ fn summarize_event_payload(payload: Option<&sea_orm::JsonValue>) -> String {
     if let Some(message) = payload.get("message").and_then(serde_json::Value::as_str) {
         return message.to_string();
     }
-    if let Some(session_id) = payload
-        .get("session_id")
-        .and_then(serde_json::Value::as_str)
-    {
+    if let Some(session_id) = payload.get("session_id").and_then(serde_json::Value::as_str) {
         return format!("session {session_id}");
     }
     if let Some(status) = payload.get("status").and_then(serde_json::Value::as_str) {

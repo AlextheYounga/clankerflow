@@ -15,34 +15,14 @@ pub struct Message {
 
 impl Message {
     pub fn command(id: impl Into<String>, name: impl Into<String>, payload: Value) -> Self {
-        Self {
-            v: "v1".to_string(),
-            id: id.into(),
-            kind: "command".to_string(),
-            name: name.into(),
-            payload,
-        }
+        Self { v: "v1".to_string(), id: id.into(), kind: "command".to_string(), name: name.into(), payload }
     }
 
-    pub fn response(
-        request_id: impl Into<String>,
-        name: impl Into<String>,
-        payload: Value,
-    ) -> Self {
-        Self {
-            v: "v1".to_string(),
-            id: request_id.into(),
-            kind: "response".to_string(),
-            name: name.into(),
-            payload,
-        }
+    pub fn response(request_id: impl Into<String>, name: impl Into<String>, payload: Value) -> Self {
+        Self { v: "v1".to_string(), id: request_id.into(), kind: "response".to_string(), name: name.into(), payload }
     }
 
-    pub fn error_response(
-        request_id: impl Into<String>,
-        name: impl Into<String>,
-        message: impl Into<String>,
-    ) -> Self {
+    pub fn error_response(request_id: impl Into<String>, name: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             v: "v1".to_string(),
             id: request_id.into(),
@@ -60,11 +40,7 @@ mod tests {
 
     #[test]
     fn command_constructor_sets_correct_fields() {
-        let msg = Message::command(
-            "cmd_1",
-            "start_run",
-            serde_json::json!({ "workflow_path": "/tmp/duos.js" }),
-        );
+        let msg = Message::command("cmd_1", "start_run", serde_json::json!({ "workflow_path": "/tmp/duos.js" }));
 
         assert_eq!(msg.v, "v1");
         assert_eq!(msg.id, "cmd_1");
@@ -93,11 +69,7 @@ mod tests {
 
     #[test]
     fn round_trips_through_json_line_without_newlines() {
-        let original = Message::command(
-            "cmd_42",
-            "cancel_run",
-            serde_json::json!({ "reason": "user_requested" }),
-        );
+        let original = Message::command("cmd_42", "cancel_run", serde_json::json!({ "reason": "user_requested" }));
 
         let line = serde_json::to_string(&original).expect("should serialize");
         assert!(!line.contains('\n'), "IPC line must not contain newlines");

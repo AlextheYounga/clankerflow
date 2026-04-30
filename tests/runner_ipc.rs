@@ -25,9 +25,7 @@ async fn handle_runner_line_records_parse_error_for_invalid_json() {
     let ctx = test_ipc_context(&project).await;
 
     let mut sink = io::sink();
-    let (control, status) = handle_runner_line(&ctx, &mut sink, "not json")
-        .await
-        .unwrap();
+    let (control, status) = handle_runner_line(&ctx, &mut sink, "not json").await.unwrap();
 
     assert_eq!(control, LoopControl::Continue);
     assert_eq!(status, None);
@@ -40,16 +38,8 @@ async fn handle_runner_line_records_parse_error_for_invalid_json() {
         .unwrap();
 
     assert_eq!(errors.len(), 1);
-    let error_msg = errors[0]
-        .data
-        .as_ref()
-        .and_then(|d| d.get("error"))
-        .and_then(|v| v.as_str())
-        .unwrap();
-    assert!(
-        error_msg.contains("line 1 column"),
-        "expected serde parse error, got: {error_msg}"
-    );
+    let error_msg = errors[0].data.as_ref().and_then(|d| d.get("error")).and_then(|v| v.as_str()).unwrap();
+    assert!(error_msg.contains("line 1 column"), "expected serde parse error, got: {error_msg}");
 }
 
 #[tokio::test]
@@ -73,9 +63,7 @@ async fn handle_runner_line_persists_run_failed_payload_with_error_details() {
     });
 
     let mut sink = io::sink();
-    let (control, status) = handle_runner_line(&ctx, &mut sink, &message.to_string())
-        .await
-        .unwrap();
+    let (control, status) = handle_runner_line(&ctx, &mut sink, &message.to_string()).await.unwrap();
 
     assert_eq!(control, LoopControl::Stop);
     assert_eq!(status, Some(RunStatus::Failed));
@@ -96,16 +84,9 @@ async fn handle_runner_line_persists_run_failed_payload_with_error_details() {
 
 async fn test_ipc_context(project: &TempDir) -> Context {
     let db = connect(project.path()).await.unwrap();
-    let workflow_id = upsert_workflow(&db, "test", &project.path().join("test.ts"))
-        .await
-        .unwrap();
-    let run_id = create_run(&db, workflow_id, WorkflowEnv::Host)
-        .await
-        .unwrap();
-    let cancel = Arc::new(CancelState {
-        cancelled: AtomicBool::new(false),
-        force_kill: AtomicBool::new(false),
-    });
+    let workflow_id = upsert_workflow(&db, "test", &project.path().join("test.ts")).await.unwrap();
+    let run_id = create_run(&db, workflow_id, WorkflowEnv::Host).await.unwrap();
+    let cancel = Arc::new(CancelState { cancelled: AtomicBool::new(false), force_kill: AtomicBool::new(false) });
     let opencode = Gateway::from_project_root(project.path()).unwrap();
 
     Context {

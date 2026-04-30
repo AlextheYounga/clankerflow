@@ -132,12 +132,7 @@ fn compose_file_path(project_root: &Path) -> PathBuf {
 }
 
 fn compose_args(project_root: &Path) -> Vec<String> {
-    vec![
-        "-f".to_string(),
-        compose_file_path(project_root)
-            .to_string_lossy()
-            .to_string(),
-    ]
+    vec!["-f".to_string(), compose_file_path(project_root).to_string_lossy().to_string()]
 }
 
 fn compose_command(project_root: &Path) -> AsyncCommand {
@@ -165,12 +160,7 @@ mod tests {
 
         let path = compose_file_path(root);
 
-        assert_eq!(
-            path,
-            PathBuf::from(
-                "/home/user/project/.agents/.clankerflow/docker/agent.docker-compose.yaml"
-            )
-        );
+        assert_eq!(path, PathBuf::from("/home/user/project/.agents/.clankerflow/docker/agent.docker-compose.yaml"));
     }
 
     #[test]

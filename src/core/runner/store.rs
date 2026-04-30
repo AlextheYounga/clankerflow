@@ -2,9 +2,7 @@ use std::path::Path;
 use std::process;
 
 use anyhow::Result;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 
 use crate::db::entities::event::ActiveModel as EventActive;
 use crate::db::entities::workflow::ActiveModel as WorkflowActive;
@@ -18,11 +16,7 @@ use crate::db::entities::workflow_session::ActiveModel as WorkflowSessionActive;
 pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -> Result<i64> {
     use crate::db::entities::workflow::{Column as WorkflowColumn, Entity as Workflow};
 
-    if let Some(existing) = Workflow::find()
-        .filter(WorkflowColumn::Name.eq(name))
-        .one(db)
-        .await?
-    {
+    if let Some(existing) = Workflow::find().filter(WorkflowColumn::Name.eq(name)).one(db).await? {
         return Ok(existing.id);
     }
 
@@ -45,11 +39,7 @@ pub async fn upsert_workflow(db: &DatabaseConnection, name: &str, path: &Path) -
 ///
 /// # Errors
 /// Returns an error if inserting the run row fails.
-pub async fn create_run(
-    db: &DatabaseConnection,
-    workflow_id: i64,
-    env: WorkflowEnv,
-) -> Result<i64> {
+pub async fn create_run(db: &DatabaseConnection, workflow_id: i64, env: WorkflowEnv) -> Result<i64> {
     let now = chrono::Utc::now();
 
     let inserted = WorkflowRunActive {
@@ -75,11 +65,7 @@ pub async fn set_status(db: &DatabaseConnection, id: i64, status: RunStatus) -> 
     let now = chrono::Utc::now();
     // `completed_at` is only meaningful for terminal states; keeping it null for
     // active states avoids misleading durations in downstream queries.
-    let completed_at = matches!(
-        status,
-        RunStatus::Completed | RunStatus::Failed | RunStatus::Cancelled
-    )
-    .then_some(now);
+    let completed_at = matches!(status, RunStatus::Completed | RunStatus::Failed | RunStatus::Cancelled).then_some(now);
 
     WorkflowRunActive {
         id: ActiveValue::Unchanged(id),
@@ -139,14 +125,8 @@ pub async fn append_run_event(
 ///
 /// # Errors
 /// Returns an error if inserting the session row fails.
-pub async fn create_workflow_session(
-    db: &DatabaseConnection,
-    run_id: i64,
-    opencode_session_id: &str,
-) -> Result<()> {
-    use crate::db::entities::workflow_session::{
-        Column as WorkflowSessionColumn, Entity as WorkflowSession,
-    };
+pub async fn create_workflow_session(db: &DatabaseConnection, run_id: i64, opencode_session_id: &str) -> Result<()> {
+    use crate::db::entities::workflow_session::{Column as WorkflowSessionColumn, Entity as WorkflowSession};
 
     let existing = WorkflowSession::find()
         .filter(WorkflowSessionColumn::WorkflowRunId.eq(run_id))

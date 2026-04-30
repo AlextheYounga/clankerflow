@@ -64,33 +64,14 @@ impl Cli {
     pub async fn run(self) -> anyhow::Result<()> {
         match self.command {
             Commands::Init => commands::init::run().await,
-            Commands::Work {
-                name,
-                env,
-                yolo,
-                containment,
-            } => {
+            Commands::Work { name, env, yolo, containment } => {
                 let (effective_env, effective_yolo) = resolve_work_flags(env, yolo, containment)?;
                 commands::work::run(name, effective_env, effective_yolo).await
             }
             Commands::Manage => commands::manage::run(),
-            Commands::_Run {
-                run_id,
-                workflow_name,
-                workflow_path,
-                env,
-                project_root,
-                yolo,
-            } => {
-                commands::work::run_worker(WorkerArgs {
-                    run_id,
-                    workflow_name,
-                    workflow_path,
-                    env,
-                    project_root,
-                    yolo,
-                })
-                .await
+            Commands::_Run { run_id, workflow_name, workflow_path, env, project_root, yolo } => {
+                commands::work::run_worker(WorkerArgs { run_id, workflow_name, workflow_path, env, project_root, yolo })
+                    .await
             }
             Commands::Make { command } => match command {
                 MakeCommands::Ticket => commands::make::ticket(),
@@ -106,11 +87,7 @@ impl Cli {
 
 // This is to account for the --containment flag which is a shorthand for --env container + --yolo.
 // We can't express this logic purely via clap attributes, so we have to resolve it manually here.
-fn resolve_work_flags(
-    env: RuntimeEnv,
-    yolo: bool,
-    containment: bool,
-) -> anyhow::Result<(RuntimeEnv, bool)> {
+fn resolve_work_flags(env: RuntimeEnv, yolo: bool, containment: bool) -> anyhow::Result<(RuntimeEnv, bool)> {
     if !containment {
         return Ok((env, yolo));
     }
@@ -125,11 +102,7 @@ fn resolve_work_flags(
 }
 
 #[cfg(test)]
-#[expect(
-    clippy::panic,
-    clippy::unwrap_used,
-    clippy::match_wildcard_for_single_variants
-)]
+#[expect(clippy::panic, clippy::unwrap_used, clippy::match_wildcard_for_single_variants)]
 mod tests {
     use super::*;
 
@@ -138,12 +111,7 @@ mod tests {
         let cli = Cli::try_parse_from(["clankerflow", "work", "duos"]).unwrap();
 
         match cli.command {
-            Commands::Work {
-                name,
-                env,
-                yolo,
-                containment,
-            } => {
+            Commands::Work { name, env, yolo, containment } => {
                 assert_eq!(name, "duos");
                 assert_eq!(env, RuntimeEnv::Host);
                 assert!(!yolo);
@@ -155,8 +123,7 @@ mod tests {
 
     #[test]
     fn work_command_parses_container_env() {
-        let cli =
-            Cli::try_parse_from(["clankerflow", "work", "duos", "--env", "container"]).unwrap();
+        let cli = Cli::try_parse_from(["clankerflow", "work", "duos", "--env", "container"]).unwrap();
 
         match cli.command {
             Commands::Work { env, .. } => assert_eq!(env, RuntimeEnv::Container),
@@ -199,8 +166,7 @@ mod tests {
 
     #[test]
     fn containment_conflicts_with_explicit_yolo_at_parse_level() {
-        let result =
-            Cli::try_parse_from(["clankerflow", "work", "duos", "--containment", "--yolo"]);
+        let result = Cli::try_parse_from(["clankerflow", "work", "duos", "--containment", "--yolo"]);
 
         assert!(result.is_err());
     }
@@ -209,30 +175,19 @@ mod tests {
     fn containment_up_command_parses() {
         let cli = Cli::try_parse_from(["clankerflow", "containment", "up"]).unwrap();
 
-        assert!(matches!(
-            cli.command,
-            Commands::Containment {
-                command: ContainmentCommands::Up,
-            }
-        ));
+        assert!(matches!(cli.command, Commands::Containment { command: ContainmentCommands::Up }));
     }
 
     #[test]
     fn containment_down_command_parses() {
         let cli = Cli::try_parse_from(["clankerflow", "containment", "down"]).unwrap();
 
-        assert!(matches!(
-            cli.command,
-            Commands::Containment {
-                command: ContainmentCommands::Down,
-            }
-        ));
+        assert!(matches!(cli.command, Commands::Containment { command: ContainmentCommands::Down }));
     }
 
     #[test]
     fn make_worktree_command_parses_branch() {
-        let cli =
-            Cli::try_parse_from(["clankerflow", "make", "worktree", "feat/new-branch"]).unwrap();
+        let cli = Cli::try_parse_from(["clankerflow", "make", "worktree", "feat/new-branch"]).unwrap();
 
         match cli.command {
             Commands::Make { command } => match command {

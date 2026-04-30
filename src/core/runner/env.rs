@@ -16,11 +16,7 @@ pub fn parse_runtime_env(env: RuntimeEnv) -> WorkflowEnv {
     }
 }
 
-pub async fn spawn_container_runner(
-    project_root: &Path,
-    codebase_id: &str,
-    port: u16,
-) -> Result<Child> {
+pub async fn spawn_container_runner(project_root: &Path, codebase_id: &str, port: u16) -> Result<Child> {
     let container_id = Docker::ensure_running(project_root, codebase_id).await?;
     let runner_path = "/workspace/.agents/.clankerflow/lib/src/runner.ts";
     let tsconfig_path = "/workspace/.agents/tsconfig.json";
@@ -48,9 +44,7 @@ pub fn spawn_host_runner(project_root: &Path, port: u16) -> Result<Child> {
     command.args(executable.args);
 
     if let Some(runner_path) = runner_path {
-        command
-            .args(["--tsconfig", tsconfig_path.to_str().unwrap_or(".")])
-            .arg(runner_path);
+        command.args(["--tsconfig", tsconfig_path.to_str().unwrap_or(".")]).arg(runner_path);
     }
 
     command
@@ -70,16 +64,10 @@ struct HostRunnerExecutable {
 
 fn host_runner_executable(project_root: &Path) -> HostRunnerExecutable {
     if let Ok(bundle_path) = env::var("CLANKERFLOW_HOST_RUNNER_BUNDLE") {
-        return HostRunnerExecutable {
-            program: OsString::from("node"),
-            args: vec![OsString::from(bundle_path)],
-        };
+        return HostRunnerExecutable { program: OsString::from("node"), args: vec![OsString::from(bundle_path)] };
     }
 
-    HostRunnerExecutable {
-        program: tsx_bin_path(project_root).into_os_string(),
-        args: Vec::new(),
-    }
+    HostRunnerExecutable { program: tsx_bin_path(project_root).into_os_string(), args: Vec::new() }
 }
 
 fn runner_entry_path(project_root: &Path) -> Option<PathBuf> {
@@ -106,17 +94,11 @@ mod tests {
 
     #[test]
     fn parse_runtime_env_maps_host() {
-        assert!(matches!(
-            parse_runtime_env(RuntimeEnv::Host),
-            WorkflowEnv::Host
-        ));
+        assert!(matches!(parse_runtime_env(RuntimeEnv::Host), WorkflowEnv::Host));
     }
 
     #[test]
     fn parse_runtime_env_maps_container() {
-        assert!(matches!(
-            parse_runtime_env(RuntimeEnv::Container),
-            WorkflowEnv::Container
-        ));
+        assert!(matches!(parse_runtime_env(RuntimeEnv::Container), WorkflowEnv::Container));
     }
 }

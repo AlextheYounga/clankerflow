@@ -39,9 +39,7 @@ pub async fn run() -> anyhow::Result<()> {
         println!("  .opencode/opencode.json OpenCode project config");
         println!("  .agents/workflows/       put your workflows here");
         println!();
-        println!(
-            "Next: edit .agents/settings.json and .opencode/opencode.json, then run `clankerflow work <name>`."
-        );
+        println!("Next: edit .agents/settings.json and .opencode/opencode.json, then run `clankerflow work <name>`.");
     }
 
     Ok(())

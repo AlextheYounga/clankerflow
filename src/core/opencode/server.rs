@@ -42,17 +42,13 @@ async fn wait_until_reachable(child: &mut Child) -> Result<()> {
         }
 
         if let Some(status) = child.try_wait()? {
-            return Err(anyhow!(
-                "OpenCode server exited before becoming ready (status: {status})"
-            ));
+            return Err(anyhow!("OpenCode server exited before becoming ready (status: {status})"));
         }
 
         sleep(STARTUP_POLL_INTERVAL).await;
     }
 
-    Err(anyhow!(
-        "timed out waiting for OpenCode server at {DEFAULT_BASE_URL}"
-    ))
+    Err(anyhow!("timed out waiting for OpenCode server at {DEFAULT_BASE_URL}"))
 }
 
 fn spawn_server() -> Result<Child> {
@@ -85,10 +81,7 @@ fn map_spawn_error(error: &Error) -> anyhow::Error {
 
 async fn is_reachable() -> bool {
     let target = (DEFAULT_HOST, DEFAULT_PORT);
-    matches!(
-        timeout(PROBE_TIMEOUT, TcpStream::connect(target)).await,
-        Ok(Ok(_))
-    )
+    matches!(timeout(PROBE_TIMEOUT, TcpStream::connect(target)).await, Ok(Ok(_)))
 }
 
 #[cfg(test)]

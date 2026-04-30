@@ -16,40 +16,14 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(WorkflowRuns::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(WorkflowRuns::Id)
-                            .big_integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(WorkflowRuns::WorkflowId)
-                            .big_integer()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(WorkflowRuns::Id).big_integer().not_null().auto_increment().primary_key())
+                    .col(ColumnDef::new(WorkflowRuns::WorkflowId).big_integer().null())
                     .col(ColumnDef::new(WorkflowRuns::Pid).big_integer().null())
                     .col(ColumnDef::new(WorkflowRuns::Env).string_len(32).not_null())
-                    .col(
-                        ColumnDef::new(WorkflowRuns::Status)
-                            .string_len(32)
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(WorkflowRuns::CreatedAt)
-                            .timestamp_with_time_zone()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(WorkflowRuns::UpdatedAt)
-                            .timestamp_with_time_zone()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(WorkflowRuns::CompletedAt)
-                            .timestamp_with_time_zone()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(WorkflowRuns::Status).string_len(32).not_null())
+                    .col(ColumnDef::new(WorkflowRuns::CreatedAt).timestamp_with_time_zone().not_null())
+                    .col(ColumnDef::new(WorkflowRuns::UpdatedAt).timestamp_with_time_zone().not_null())
+                    .col(ColumnDef::new(WorkflowRuns::CompletedAt).timestamp_with_time_zone().null())
                     .foreign_key(
                         ForeignKey::create()
                             .from(WorkflowRuns::Table, WorkflowRuns::WorkflowId)
@@ -62,9 +36,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_table(Table::drop().table(WorkflowRuns::Table).to_owned())
-            .await
+        manager.drop_table(Table::drop().table(WorkflowRuns::Table).to_owned()).await
     }
 }
 

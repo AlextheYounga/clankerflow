@@ -49,20 +49,12 @@ impl Gateway {
 
     async fn run(&self, payload: &Value) -> Result<Value> {
         let prompt = require_prompt(payload)?;
-        let create = CreateSessionRequest {
-            title: read_trimmed_string(payload, "title"),
-            ..Default::default()
-        };
+        let create = CreateSessionRequest { title: read_trimmed_string(payload, "title"), ..Default::default() };
 
         let session = self.client.sessions().create(&create).await?;
 
         let request = PromptRequest {
-            parts: vec![PromptPart::Text {
-                text: prompt,
-                synthetic: None,
-                ignored: None,
-                metadata: None,
-            }],
+            parts: vec![PromptPart::Text { text: prompt, synthetic: None, ignored: None, metadata: None }],
             message_id: None,
             model: resolve_model(payload),
             agent: None,
@@ -71,15 +63,9 @@ impl Gateway {
             variant: None,
         };
 
-        self.client
-            .messages()
-            .prompt_async(&session.id, &request)
-            .await?;
+        self.client.messages().prompt_async(&session.id, &request).await?;
 
-        let output = self
-            .client
-            .wait_for_idle_text(&session.id, RUN_TIMEOUT)
-            .await?;
+        let output = self.client.wait_for_idle_text(&session.id, RUN_TIMEOUT).await?;
         let messages = self.client.messages().list(&session.id).await?;
         let message_id = latest_assistant_message_id(&messages);
 
@@ -192,12 +178,7 @@ fn read_string(payload: &Value, key: &str) -> Option<String> {
 }
 
 fn read_trimmed_string(payload: &Value, key: &str) -> Option<String> {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
+    payload.get(key).and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()).map(str::to_string)
 }
 
 fn resolve_model(payload: &Value) -> Option<ModelRef> {
@@ -214,25 +195,15 @@ fn model_from_value(value: &Value) -> Option<ModelRef> {
     let provider_id = read_model_id(value, &["providerID", "provider_id"])?;
     let model_id = read_model_id(value, &["modelID", "model_id"])?;
 
-    Some(ModelRef {
-        provider_id,
-        model_id,
-    })
+    Some(ModelRef { provider_id, model_id })
 }
 
 fn read_model_id(value: &Value, keys: &[&str]) -> Option<String> {
-    keys.iter()
-        .find_map(|key| value.get(key))
-        .and_then(Value::as_str)
-        .map(str::to_string)
+    keys.iter().find_map(|key| value.get(key)).and_then(Value::as_str).map(str::to_string)
 }
 
 fn latest_assistant_message_id(messages: &[Message]) -> Option<String> {
-    messages
-        .iter()
-        .rev()
-        .find(|message| message.role() == "assistant")
-        .map(|message| message.id().to_string())
+    messages.iter().rev().find(|message| message.role() == "assistant").map(|message| message.id().to_string())
 }
 
 #[cfg(test)]

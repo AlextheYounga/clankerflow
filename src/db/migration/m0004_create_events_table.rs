@@ -16,31 +16,19 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Events::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(Events::Id)
-                            .big_integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Events::Id).big_integer().not_null().auto_increment().primary_key())
                     .col(ColumnDef::new(Events::EntityId).big_integer().not_null())
                     .col(ColumnDef::new(Events::EntityType).string().not_null())
                     .col(ColumnDef::new(Events::EventType).string().not_null())
                     .col(ColumnDef::new(Events::Data).json().null())
-                    .col(
-                        ColumnDef::new(Events::CreatedAt)
-                            .timestamp_with_time_zone()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Events::CreatedAt).timestamp_with_time_zone().not_null())
                     .to_owned(),
             )
             .await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_table(Table::drop().table(Events::Table).to_owned())
-            .await
+        manager.drop_table(Table::drop().table(Events::Table).to_owned()).await
     }
 }
 

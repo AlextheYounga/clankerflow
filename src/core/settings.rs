@@ -58,9 +58,7 @@ mod tests {
                 user_email: "alex@example.com".to_string(),
                 default_branch: "main".to_string(),
             },
-            workflows: WorkflowConfig {
-                default: "duos".to_string(),
-            },
+            workflows: WorkflowConfig { default: "duos".to_string() },
         }
     }
 

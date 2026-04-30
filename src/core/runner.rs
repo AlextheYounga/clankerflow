@@ -81,19 +81,11 @@ impl WorkflowEngine {
         let command = worker_command(args, run_id)?;
         let run_window_name = tmux::create_run_window(
             args.workflow_name,
-            tmux::WindowTarget {
-                session_name: &project_session_name,
-                run_id,
-                work_dir: args.project_root,
-            },
+            tmux::WindowTarget { session_name: &project_session_name, run_id, work_dir: args.project_root },
             &command,
         )?;
 
-        Ok(RunLaunch {
-            run_id,
-            project_session_name,
-            run_window_name,
-        })
+        Ok(RunLaunch { run_id, project_session_name, run_window_name })
     }
 
     /// Run a workflow to completion and return its final status.
@@ -118,11 +110,7 @@ impl WorkflowEngine {
         Self::run_with_context(args, ctx, runner).await
     }
 
-    async fn run_with_context(
-        args: &WorkflowArgs<'_>,
-        ctx: Context,
-        mut runner: Self,
-    ) -> Result<RunStatus> {
+    async fn run_with_context(args: &WorkflowArgs<'_>, ctx: Context, mut runner: Self) -> Result<RunStatus> {
         let _ = args;
         let ipc = runner.take_ipc_channel()?;
         let (ipc_read, mut ipc_write) = io::split(ipc);
@@ -145,15 +133,11 @@ impl WorkflowEngine {
         println!("workflow started (run id: {run_id})");
         set_pid(&db, run_id, i64::from(process::id())).await?;
 
-        let cancel = Arc::new(CancelState {
-            cancelled: AtomicBool::new(false),
-            force_kill: AtomicBool::new(false),
-        });
+        let cancel = Arc::new(CancelState { cancelled: AtomicBool::new(false), force_kill: AtomicBool::new(false) });
 
         server::ensure_running().await?;
         let opencode = Gateway::from_project_root(args.project_root)?;
-        let project_session_name =
-            tmux::project_session_name(&codebase_id::derive(args.project_root));
+        let project_session_name = tmux::project_session_name(&codebase_id::derive(args.project_root));
 
         Ok(Context {
             db,
@@ -165,34 +149,21 @@ impl WorkflowEngine {
         })
     }
 
-    async fn spawn_process(
-        project_root: &Path,
-        env: RuntimeEnv,
-        codebase_id: &str,
-    ) -> Result<Self> {
+    async fn spawn_process(project_root: &Path, env: RuntimeEnv, codebase_id: &str) -> Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let port = listener.local_addr()?.port();
 
         let child = match env {
             RuntimeEnv::Host => spawn_host_runner(project_root, port)?,
-            RuntimeEnv::Container => {
-                spawn_container_runner(project_root, codebase_id, port).await?
-            }
+            RuntimeEnv::Container => spawn_container_runner(project_root, codebase_id, port).await?,
         };
 
         let (stream, _) = timeout(Duration::from_secs(30), listener.accept())
             .await
-            .map_err(|_| {
-                anyhow!(
-                    "timed out waiting for runner to connect (is Docker running and the image built?)"
-                )
-            })?
+            .map_err(|_| anyhow!("timed out waiting for runner to connect (is Docker running and the image built?)"))?
             .map_err(|e| anyhow!("failed to accept runner connection: {e}"))?;
 
-        Ok(Self {
-            process: RunnerProcess::Child(child),
-            ipc: Some(stream),
-        })
+        Ok(Self { process: RunnerProcess::Child(child), ipc: Some(stream) })
     }
 
     async fn wait_for_exit(&mut self, cancel: &Arc<CancelState>) -> Result<()> {
@@ -202,15 +173,12 @@ impl WorkflowEngine {
     }
 
     fn take_ipc_channel(&mut self) -> Result<TcpStream> {
-        self.ipc
-            .take()
-            .ok_or_else(|| anyhow!("IPC channel not available"))
+        self.ipc.take().ok_or_else(|| anyhow!("IPC channel not available"))
     }
 }
 
 fn worker_command(args: &WorkflowArgs<'_>, run_id: i64) -> Result<String> {
-    let executable = current_exe()
-        .map_err(|error| anyhow!("failed to resolve clankerflow executable: {error}"))?;
+    let executable = current_exe().map_err(|error| anyhow!("failed to resolve clankerflow executable: {error}"))?;
 
     let mut parts = vec![
         shell_escape(executable.to_string_lossy().as_ref()),

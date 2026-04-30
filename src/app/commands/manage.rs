@@ -10,9 +10,7 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::crossterm::ExecutableCommand;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
+use ratatui::crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -64,10 +62,7 @@ async fn async_run() -> Result<()> {
     run_result
 }
 
-async fn run_loop(
-    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
-    app: &mut App<'_>,
-) -> Result<()> {
+async fn run_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut App<'_>) -> Result<()> {
     let refresh_interval = Duration::from_secs(2);
     let mut last_refresh = Instant::now();
 
@@ -110,8 +105,7 @@ async fn refresh(app: &mut App<'_>) -> Result<()> {
     if app.state.runs.is_empty() {
         app.state.set_status("No clankerflow runs found yet", false);
     } else {
-        app.state
-            .set_status(format!("Loaded {} runs", app.state.runs.len()), false);
+        app.state.set_status(format!("Loaded {} runs", app.state.runs.len()), false);
     }
 
     Ok(())
@@ -157,10 +151,7 @@ fn cancel_selected(state: &mut State) -> Result<()> {
     };
 
     send_sigint(pid)?;
-    state.set_status(
-        format!("Sent cancel signal to run {} (pid {pid})", run.run_id),
-        false,
-    );
+    state.set_status(format!("Sent cancel signal to run {} (pid {pid})", run.run_id), false);
     Ok(())
 }
 
@@ -184,9 +175,7 @@ fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
 }
 
 fn send_sigint(pid: i64) -> Result<()> {
-    let status = Command::new("kill")
-        .args(["-INT", &pid.to_string()])
-        .status()?;
+    let status = Command::new("kill").args(["-INT", &pid.to_string()]).status()?;
 
     if !status.success() {
         anyhow::bail!("failed to send SIGINT to pid {pid}");
@@ -218,11 +207,7 @@ fn split(area: Rect) -> [Rect; 4] {
         .split(area);
     let top = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(32),
-            Constraint::Percentage(34),
-            Constraint::Percentage(34),
-        ])
+        .constraints([Constraint::Percentage(32), Constraint::Percentage(34), Constraint::Percentage(34)])
         .split(outer[0]);
 
     [top[0], top[1], top[2], outer[1]]
@@ -237,17 +222,10 @@ fn render_runs(frame: &mut ratatui::Frame, area: Rect, state: &State) {
             .iter()
             .enumerate()
             .map(|(index, run)| {
-                let marker = if index == state.selected_index {
-                    ">"
-                } else {
-                    " "
-                };
+                let marker = if index == state.selected_index { ">" } else { " " };
                 let status_style = status_style(&run.status);
                 let line = Line::from(vec![
-                    Span::styled(
-                        format!("{marker} #{} ", run.run_id),
-                        Style::default().fg(Color::DarkGray),
-                    ),
+                    Span::styled(format!("{marker} #{} ", run.run_id), Style::default().fg(Color::DarkGray)),
                     Span::styled(run.workflow_name.clone(), Style::default().fg(Color::White)),
                     Span::raw(" "),
                     Span::styled(run.status.clone(), status_style),
@@ -268,15 +246,8 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, state: &State) {
             Line::from(format!("Run ID: {}", run.run_id)),
             Line::from(format!("Status: {}", run.status)),
             Line::from(format!("Env: {}", run.env)),
-            Line::from(format!(
-                "PID: {}",
-                run.pid
-                    .map_or_else(|| "-".to_string(), |pid| pid.to_string())
-            )),
-            Line::from(format!(
-                "Updated: {}",
-                run.updated_at.format("%Y-%m-%d %H:%M:%S UTC")
-            )),
+            Line::from(format!("PID: {}", run.pid.map_or_else(|| "-".to_string(), |pid| pid.to_string()))),
+            Line::from(format!("Updated: {}", run.updated_at.format("%Y-%m-%d %H:%M:%S UTC"))),
             Line::from(""),
             Line::from("OpenCode Sessions:"),
         ];
@@ -284,11 +255,7 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, state: &State) {
         if run.session_ids.is_empty() {
             lines.push(Line::from("  waiting for session"));
         } else {
-            lines.extend(
-                run.session_ids
-                    .iter()
-                    .map(|session_id| Line::from(format!("  {session_id}"))),
-            );
+            lines.extend(run.session_ids.iter().map(|session_id| Line::from(format!("  {session_id}"))));
         }
 
         lines.push(Line::from(""));
@@ -296,11 +263,7 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, state: &State) {
         if run.tmux_windows.is_empty() {
             lines.push(Line::from("  missing"));
         } else {
-            lines.extend(
-                run.tmux_windows
-                    .iter()
-                    .map(|window| Line::from(format!("  {window}"))),
-            );
+            lines.extend(run.tmux_windows.iter().map(|window| Line::from(format!("  {window}"))));
         }
 
         lines
@@ -308,9 +271,7 @@ fn render_details(frame: &mut ratatui::Frame, area: Rect, state: &State) {
         vec![Line::from("No run selected")]
     };
 
-    let paragraph = Paragraph::new(body)
-        .wrap(Wrap { trim: false })
-        .block(panel("Details"));
+    let paragraph = Paragraph::new(body).wrap(Wrap { trim: false }).block(panel("Details"));
     frame.render_widget(paragraph, area);
 }
 
@@ -327,10 +288,7 @@ fn render_events(frame: &mut ratatui::Frame, area: Rect, state: &State) {
                         format!("{} ", event.created_at.format("%H:%M:%S")),
                         Style::default().fg(Color::DarkGray),
                     ),
-                    Span::styled(
-                        event.event_type.clone(),
-                        Style::default().fg(Color::LightYellow),
-                    ),
+                    Span::styled(event.event_type.clone(), Style::default().fg(Color::LightYellow)),
                     Span::raw(" "),
                     Span::raw(event.summary.clone()),
                 ]))
@@ -349,33 +307,13 @@ fn render_help(frame: &mut ratatui::Frame, area: Rect, state: &State) {
         Style::default().fg(Color::Rgb(255, 180, 80))
     };
     let text = Line::from(vec![
-        Span::styled(
-            "Enter/a",
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .fg(Color::Rgb(255, 140, 0)),
-        ),
+        Span::styled("Enter/a", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(255, 140, 0))),
         Span::raw(" attach  "),
-        Span::styled(
-            "c",
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .fg(Color::Rgb(255, 140, 0)),
-        ),
+        Span::styled("c", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(255, 140, 0))),
         Span::raw(" cancel  "),
-        Span::styled(
-            "r",
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .fg(Color::Rgb(255, 140, 0)),
-        ),
+        Span::styled("r", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(255, 140, 0))),
         Span::raw(" refresh  "),
-        Span::styled(
-            "q",
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .fg(Color::Rgb(255, 140, 0)),
-        ),
+        Span::styled("q", Style::default().add_modifier(Modifier::BOLD).fg(Color::Rgb(255, 140, 0))),
         Span::raw(" quit  "),
         Span::styled(state.status_line.clone(), style),
     ]);
@@ -389,22 +327,14 @@ fn panel(title: &str) -> Block<'_> {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Rgb(255, 140, 0)))
         .title(title)
-        .title_style(
-            Style::default()
-                .fg(Color::Rgb(255, 190, 110))
-                .add_modifier(Modifier::BOLD),
-        )
+        .title_style(Style::default().fg(Color::Rgb(255, 190, 110)).add_modifier(Modifier::BOLD))
 }
 
 fn status_style(status: &str) -> Style {
     match status {
-        "Running" => Style::default()
-            .fg(Color::Rgb(255, 170, 0))
-            .add_modifier(Modifier::BOLD),
+        "Running" => Style::default().fg(Color::Rgb(255, 170, 0)).add_modifier(Modifier::BOLD),
         "Completed" => Style::default().fg(Color::Gray),
-        "Failed" => Style::default()
-            .fg(Color::LightRed)
-            .add_modifier(Modifier::BOLD),
+        "Failed" => Style::default().fg(Color::LightRed).add_modifier(Modifier::BOLD),
         "Cancelled" => Style::default().fg(Color::Yellow),
         _ => Style::default().fg(Color::DarkGray),
     }
@@ -426,10 +356,7 @@ mod tests {
             updated_at: chrono::Utc::now(),
             completed_at: None,
             session_ids: vec!["sess_123".to_string()],
-            tmux_windows: vec![
-                "run__1__duos".to_string(),
-                "opencode__1__sess_123".to_string(),
-            ],
+            tmux_windows: vec!["run__1__duos".to_string(), "opencode__1__sess_123".to_string()],
         };
 
         assert_eq!(preferred_window(&run), Some("opencode__1__sess_123"));

@@ -14,9 +14,7 @@ fn database_path(project_root: &Path) -> PathBuf {
 /// # Errors
 /// Returns an error if migrations fail.
 pub async fn migrate(conn: &DatabaseConnection) -> Result<()> {
-    Migrator::up(conn, None)
-        .await
-        .context("failed to run migrations")?;
+    Migrator::up(conn, None).await.context("failed to run migrations")?;
     Ok(())
 }
 
@@ -27,17 +25,13 @@ pub async fn connect(project_root: &Path) -> Result<DatabaseConnection> {
     let db_path = database_path(project_root);
 
     if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create DB directory: {}", parent.display()))?;
+        fs::create_dir_all(parent).with_context(|| format!("failed to create DB directory: {}", parent.display()))?;
     }
     if !db_path.exists() {
-        fs::File::create(&db_path)
-            .with_context(|| format!("failed to create DB file: {}", db_path.display()))?;
+        fs::File::create(&db_path).with_context(|| format!("failed to create DB file: {}", db_path.display()))?;
     }
     let db_url = format!("sqlite://{}?mode=rwc", db_path.to_string_lossy());
-    let conn = Database::connect(&db_url)
-        .await
-        .context("failed to connect to database")?;
+    let conn = Database::connect(&db_url).await.context("failed to connect to database")?;
     migrate(&conn).await?;
     Ok(conn)
 }
