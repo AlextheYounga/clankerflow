@@ -197,4 +197,25 @@ mod tests {
             _ => panic!("expected make command"),
         }
     }
+
+    #[test]
+    fn hidden_worker_command_uses_underscore_name() {
+        let cli = Cli::try_parse_from([
+            "clankerflow",
+            "_run",
+            "--run-id",
+            "1",
+            "--workflow-name",
+            "duos",
+            "--workflow-path",
+            "/tmp/duos.ts",
+            "--env",
+            "host",
+            "--project-root",
+            "/tmp/project",
+        ])
+        .unwrap();
+
+        assert!(matches!(cli.command, Commands::_Run { .. }));
+    }
 }

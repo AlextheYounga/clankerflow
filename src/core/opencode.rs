@@ -38,6 +38,7 @@ impl Gateway {
     /// `OpenCode` API call fails.
     pub async fn dispatch(&self, request_name: &str, payload: &Value) -> Result<Value> {
         match request_name {
+            "opencode_create_session" => self.create_session(payload).await,
             "opencode_run" => self.run(payload).await,
             "opencode_command" => self.command(payload).await,
             "opencode_messages" => self.messages(payload).await,
@@ -47,11 +48,24 @@ impl Gateway {
         }
     }
 
-    async fn run(&self, payload: &Value) -> Result<Value> {
-        let prompt = require_prompt(payload)?;
+    async fn create_session(&self, payload: &Value) -> Result<Value> {
         let create = CreateSessionRequest { title: read_trimmed_string(payload, "title"), ..Default::default() };
 
         let session = self.client.sessions().create(&create).await?;
+
+        Ok(json!({
+            "session_id": session.id,
+        }))
+    }
+
+    async fn run(&self, payload: &Value) -> Result<Value> {
+        let prompt = require_prompt(payload)?;
+        let session_id = if let Some(session_id) = read_trimmed_string(payload, "session_id") {
+            session_id
+        } else {
+            let create = CreateSessionRequest { title: read_trimmed_string(payload, "title"), ..Default::default() };
+            self.client.sessions().create(&create).await?.id
+        };
 
         let request = PromptRequest {
             parts: vec![PromptPart::Text { text: prompt, synthetic: None, ignored: None, metadata: None }],
@@ -63,14 +77,14 @@ impl Gateway {
             variant: None,
         };
 
-        self.client.messages().prompt_async(&session.id, &request).await?;
+        self.client.messages().prompt_async(&session_id, &request).await?;
 
-        let output = self.client.wait_for_idle_text(&session.id, RUN_TIMEOUT).await?;
-        let messages = self.client.messages().list(&session.id).await?;
+        let output = self.client.wait_for_idle_text(&session_id, RUN_TIMEOUT).await?;
+        let messages = self.client.messages().list(&session_id).await?;
         let message_id = latest_assistant_message_id(&messages);
 
         Ok(json!({
-            "session_id": session.id,
+            "session_id": session_id,
             "message_id": message_id,
             "output": output,
         }))

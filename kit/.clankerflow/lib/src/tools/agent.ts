@@ -31,22 +31,31 @@ export function createAgent(options: AgentOptions): AgentContext {
 function createRunHandler(options: AgentOptions): AgentContext["run"] {
   return async (input) => {
     try {
-      const payload = await options.invokeCapability(
-        "opencode_run",
-        {
-          yolo: options.yolo,
-          ...input,
-        },
+      const created = await options.invokeCapability(
+        "opencode_create_session",
+        { title: input.title },
         options.signal
       );
 
-      const sessionId = readString(payload.session_id);
-      if (sessionId !== null) {
-        options.emitEvent("agent_session_started", {
-          run_id: options.runId,
-          session_id: sessionId,
-        });
+      const sessionId = readString(created.session_id);
+      if (sessionId === null) {
+        throw new Error("OpenCode session creation did not return a session_id");
       }
+
+      options.emitEvent("agent_session_started", {
+        run_id: options.runId,
+        session_id: sessionId,
+      });
+
+      const payload = await options.invokeCapability(
+        "opencode_run",
+        {
+          ...input,
+          session_id: sessionId,
+          yolo: options.yolo,
+        },
+        options.signal
+      );
 
       return {
         ok: true,

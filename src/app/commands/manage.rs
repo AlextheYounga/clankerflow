@@ -30,6 +30,11 @@ struct App<'a> {
     state: State,
 }
 
+enum LoopOutcome {
+    Exit,
+    Attach { session_name: String, window_name: String },
+}
+
 /// # Errors
 /// Returns an error if the project is not initialized, terminal setup fails, or
 /// database/tmux reads fail while the TUI is running.
@@ -52,10 +57,13 @@ pub async fn run() -> Result<()> {
     let restore_result = restore_terminal(&mut terminal);
 
     restore_result?;
-    run_result
+    match run_result? {
+        LoopOutcome::Exit => Ok(()),
+        LoopOutcome::Attach { session_name, window_name } => tmux::attach_window(&session_name, &window_name),
+    }
 }
 
-async fn run_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut App<'_>) -> Result<()> {
+async fn run_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut App<'_>) -> Result<LoopOutcome> {
     let refresh_interval = Duration::from_secs(2);
     let mut last_refresh = Instant::now();
 
@@ -67,13 +75,18 @@ async fn run_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut A
             && key_event.kind == KeyEventKind::Press
         {
             match key_event.code {
-                KeyCode::Char('q') | KeyCode::Esc => break,
+                KeyCode::Char('q') | KeyCode::Esc => return Ok(LoopOutcome::Exit),
                 KeyCode::Up | KeyCode::Char('k') => app.state.move_up(),
                 KeyCode::Down | KeyCode::Char('j') => app.state.move_down(),
                 KeyCode::Char('r') => refresh(app).await?,
                 KeyCode::Char('c') => cancel_selected(&mut app.state)?,
                 KeyCode::Enter | KeyCode::Char('a') => {
-                    attach_selected(app.project_session_name, &mut app.state)?;
+                    if let Some(window_name) = selected_window_name(&mut app.state) {
+                        return Ok(LoopOutcome::Attach {
+                            session_name: app.project_session_name.to_string(),
+                            window_name,
+                        });
+                    }
                 }
                 _ => {}
             }
@@ -86,8 +99,6 @@ async fn run_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>, app: &mut A
             last_refresh = Instant::now();
         }
     }
-
-    Ok(())
 }
 
 async fn refresh(app: &mut App<'_>) -> Result<()> {
@@ -114,18 +125,15 @@ async fn load_selected_events(app: &mut App<'_>) -> Result<()> {
     Ok(())
 }
 
-fn attach_selected(project_session_name: &str, state: &mut State) -> Result<()> {
-    let Some(run) = state.selected_run() else {
-        return Ok(());
-    };
+fn selected_window_name(state: &mut State) -> Option<String> {
+    let run = state.selected_run()?;
 
     let Some(window_name) = preferred_window(run) else {
         state.set_status("No tmux window available for selected run", true);
-        return Ok(());
+        return None;
     };
 
-    tmux::attach_window(project_session_name, window_name)?;
-    Ok(())
+    Some(window_name.to_string())
 }
 
 fn cancel_selected(state: &mut State) -> Result<()> {
