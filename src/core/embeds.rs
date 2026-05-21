@@ -3,6 +3,8 @@ use rust_embed::RustEmbed;
 use std::fs;
 use std::path::Path;
 
+use serde_json::{Map, Value};
+
 const OPENCODE_CONFIG: &str = include_str!("../../kit/opencode.json");
 
 #[derive(RustEmbed)]
@@ -48,21 +50,39 @@ fn copy_kit_into(project_root: &Path, is_reinit: bool) -> anyhow::Result<()> {
 }
 
 /// Write the embedded `opencode.json` to `<project_root>/.opencode/opencode.json`.
-/// Skips if the file already exists (idempotent).
+/// Existing configs are updated in place to deny `OpenCode` question prompts.
 ///
 /// # Errors
 /// Returns an error if the directory cannot be created or the file cannot be written.
 pub fn place_opencode_config(project_root: &Path) -> anyhow::Result<()> {
     let dest = project_root.join(".opencode/opencode.json");
-    if dest.exists() {
+    if !dest.exists() {
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(&dest, OPENCODE_CONFIG)?;
         return Ok(());
     }
 
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(&dest, OPENCODE_CONFIG)?;
+    let raw = fs::read_to_string(&dest)?;
+    let mut config: Value = serde_json::from_str(&raw)?;
+    ensure_question_denied(&mut config)?;
+    fs::write(&dest, serde_json::to_string_pretty(&config)?)?;
 
+    Ok(())
+}
+
+fn ensure_question_denied(config: &mut Value) -> anyhow::Result<()> {
+    let Some(root) = config.as_object_mut() else {
+        anyhow::bail!("OpenCode config must be a JSON object");
+    };
+
+    let permission = root.entry("permission").or_insert_with(|| Value::Object(Map::new()));
+    let Some(permission_object) = permission.as_object_mut() else {
+        anyhow::bail!("OpenCode config permission must be a JSON object");
+    };
+
+    permission_object.insert("question".to_string(), Value::String("deny".to_string()));
     Ok(())
 }
 
@@ -197,15 +217,39 @@ mod tests {
     }
 
     #[test]
-    fn place_opencode_config_skips_if_already_exists() {
+    fn place_opencode_config_errors_on_malformed_existing_config() {
         let dir = TempDir::new().unwrap();
         let dest = dir.path().join(".opencode/opencode.json");
         fs::create_dir_all(dest.parent().unwrap()).unwrap();
         fs::write(&dest, "custom config").unwrap();
 
+        let result = place_opencode_config(dir.path());
+
+        assert!(result.is_err());
+        let content = fs::read_to_string(dest).unwrap();
+        assert_eq!(content, "custom config");
+    }
+
+    #[test]
+    fn place_opencode_config_adds_question_deny_to_existing_config() {
+        let dir = TempDir::new().unwrap();
+        let dest = dir.path().join(".opencode/opencode.json");
+        fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        fs::write(
+            &dest,
+            r#"{
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "system",
+  "autoupdate": false,
+  "model": "opencode/big-pickle"
+}"#,
+        )
+        .unwrap();
+
         place_opencode_config(dir.path()).unwrap();
 
         let content = fs::read_to_string(dest).unwrap();
-        assert_eq!(content, "custom config");
+        assert!(content.contains("\"question\": \"deny\""));
+        assert!(content.contains("\"theme\": \"system\""));
     }
 }
